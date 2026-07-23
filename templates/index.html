@@ -2,6 +2,8 @@
 {% block head %}
 <style>
   .grid { display: grid; grid-template-columns: 330px 1fr; gap: 20px; align-items: start; }
+  /* Cancel the stacked-card top margin (base.html) inside the side-by-side grid. */
+  .grid .card + .card { margin-top: 0; }
   @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
   .person-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }

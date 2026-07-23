@@ -22,18 +22,22 @@
     font-size: 14px; line-height: 1.5;
   }
   a { color: var(--accent); }
-  header.top {
-    background: #fff; border-bottom: 1px solid var(--line);
-    padding: 16px 28px; display: flex; align-items: center; justify-content: space-between;
+  header.top { background: #fff; border-bottom: 1px solid var(--line); }
+  header.top .top-inner {
+    max-width: 1060px; margin: 0 auto; padding: 16px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
   }
-  header.top .brand { display: flex; align-items: baseline; gap: 12px; }
+  header.top .brand { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
   header.top h1 {
     margin: 0; font-size: 19px; font-weight: 700; color: var(--ink);
-    letter-spacing: -0.2px;
+    letter-spacing: -0.2px; white-space: nowrap;
   }
   header.top .tagline { color: var(--muted); font-size: 12.5px; }
+  @media (max-width: 640px) {
+    header.top .tagline { display: none; }
+  }
 
-  .container { max-width: 1060px; margin: 26px auto; padding: 0 24px; }
+  .container { max-width: 1060px; margin: 24px auto; padding: 0 24px; }
 
   .card {
     background: var(--card); border: 1px solid var(--line); border-radius: 12px;
@@ -86,11 +90,13 @@
 </head>
 <body>
 <header class="top">
-  <div class="brand">
-    <h1>Resume Builder</h1>
-    <span class="tagline">AI-tailored resumes, cover letters &amp; answers</span>
+  <div class="top-inner">
+    <div class="brand">
+      <h1>Resume Builder</h1>
+      <span class="tagline">AI-tailored resumes, cover letters &amp; answers</span>
+    </div>
+    {% block topright %}{% endblock %}
   </div>
-  {% block topright %}{% endblock %}
 </header>
 <div class="container">
   {% block content %}{% endblock %}
