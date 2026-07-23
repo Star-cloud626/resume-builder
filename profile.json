@@ -1,0 +1,34 @@
+{
+  "experience": [
+    {
+      "company": "Acme Cloud",
+      "title": "Senior Software Engineer",
+      "period": "Jan 2022 - Present",
+      "location": "Sydney, AU"
+    },
+    {
+      "company": "Bright Data Labs",
+      "title": "Software Engineer",
+      "period": "Mar 2019 - Dec 2021",
+      "location": "Melbourne, AU"
+    },
+    {
+      "company": "Startify",
+      "title": "Junior Developer",
+      "period": "Jun 2017 - Feb 2019",
+      "location": "Remote"
+    }
+  ],
+  "education": [
+    {
+      "institution": "University of Sydney",
+      "degree": "B.Sc. Computer Science",
+      "period": "2013 - 2017",
+      "location": "Sydney, AU"
+    }
+  ],
+  "skills": [
+    "Python", "JavaScript", "TypeScript", "React", "PostgreSQL",
+    "Google Cloud", "Docker", "Kubernetes", "CI/CD", "REST APIs"
+  ]
+}

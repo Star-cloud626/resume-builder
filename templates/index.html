@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resume Builder</title>
+<style>
+  :root { --accent: #2f5d8c; --ink: #1f2933; --muted: #52606d; --line: #d9e2ec; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--ink); margin: 0; background: #f5f7fa;
+  }
+  header.top {
+    background: var(--accent); color: #fff; padding: 18px 24px;
+  }
+  header.top h1 { margin: 0; font-size: 18pt; }
+  header.top p { margin: 4px 0 0; opacity: 0.85; font-size: 10pt; }
+  .wrap { max-width: 1000px; margin: 22px auto; padding: 0 20px; display: grid;
+          grid-template-columns: 320px 1fr; gap: 22px; }
+  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 8px;
+          padding: 18px; }
+  .card h2 { margin: 0 0 10px; font-size: 12pt; color: #16324f; }
+  .field { font-size: 9.5pt; color: var(--muted); margin-bottom: 6px; }
+  .field b { color: var(--ink); font-weight: 600; }
+  ul.jobs { margin: 6px 0 0; padding-left: 16px; font-size: 9.5pt; color: var(--muted); }
+  ul.jobs li { margin-bottom: 3px; }
+  textarea {
+    width: 100%; min-height: 260px; resize: vertical; padding: 12px;
+    border: 1px solid var(--line); border-radius: 6px; font-size: 10.5pt;
+    font-family: inherit; line-height: 1.45;
+  }
+  .actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .group-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.6px;
+                 color: var(--muted); font-weight: 700; min-width: 84px; }
+  button {
+    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
+    padding: 10px 18px; font-size: 10.5pt; font-weight: 600; cursor: pointer;
+  }
+  button.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+  button.ghost:hover { color: #a12626; border-color: #f5c2c2; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .banner { padding: 10px 14px; border-radius: 6px; font-size: 10pt; margin-bottom: 14px; }
+  .banner.warn { background: #fffbea; border: 1px solid #f7e6a2; color: #8d6b00; }
+  .banner.error { background: #fff0f0; border: 1px solid #f5c2c2; color: #a12626; }
+  iframe { width: 100%; height: 900px; border: 1px solid var(--line); border-radius: 8px;
+           margin-top: 16px; background: #fff; display: none; }
+  .spinner { display: none; font-size: 10pt; color: var(--muted); margin-top: 10px; }
+  code { background: #eef2f7; padding: 1px 5px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Resume Builder</h1>
+  <p>Your details stay fixed &mdash; paste a job description and Gemini tailors the rest.</p>
+</header>
+
+<div class="wrap">
+  <div class="card">
+    <h2>Your fixed profile</h2>
+    <div class="field"><b>{{ profile.contact.full_name }}</b></div>
+    {% if profile.contact.headline %}<div class="field">{{ profile.contact.headline }}</div>{% endif %}
+    {% if profile.contact.location %}<div class="field">{{ profile.contact.location }}</div>{% endif %}
+    {% if profile.contact.email %}<div class="field">{{ profile.contact.email }}</div>{% endif %}
+    {% if profile.contact.phone %}<div class="field">{{ profile.contact.phone }}</div>{% endif %}
+    {% if profile.contact.linkedin %}<div class="field">{{ profile.contact.linkedin }}</div>{% endif %}
+
+    <h2 style="margin-top:16px;">Work history</h2>
+    <ul class="jobs">
+      {% for e in profile.experience %}
+      <li><b>{{ e.title }}</b> &mdash; {{ e.company }} <em>({{ e.period }})</em></li>
+      {% else %}
+      <li>No entries yet &mdash; edit <code>profile.json</code>.</li>
+      {% endfor %}
+    </ul>
+
+    {% if profile.education %}
+    <h2 style="margin-top:16px;">Education</h2>
+    <ul class="jobs">
+      {% for e in profile.education %}
+      <li>{{ e.degree }} &mdash; {{ e.institution }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    {% if not vertex_ready %}
+    <div class="banner warn">
+      Vertex AI isn't configured yet. Set <code>GOOGLE_CLOUD_PROJECT</code> in your
+      <code>.env</code> and authenticate before generating.
+    </div>
+    {% endif %}
+    {% if error %}
+    <div class="banner error">{{ error }}</div>
+    {% endif %}
+
+    <h2>Job description</h2>
+    <form id="form" method="post" action="/generate">
+      <textarea name="job_description" placeholder="Paste the full job description here...">{{ job_description or "" }}</textarea>
+      <div class="actions">
+        <span class="group-label">Resume</span>
+        <button type="submit" formaction="/generate" name="format" value="pdf" {% if not vertex_ready %}disabled{% endif %}>
+          Download PDF
+        </button>
+        <button type="button" id="previewBtn" class="secondary" {% if not vertex_ready %}disabled{% endif %}>
+          Preview
+        </button>
+      </div>
+      <div class="actions">
+        <span class="group-label">Cover letter</span>
+        <button type="submit" formaction="/cover-letter" name="format" value="pdf" {% if not vertex_ready %}disabled{% endif %}>
+          Download PDF
+        </button>
+        <button type="button" id="coverPreviewBtn" class="secondary" {% if not vertex_ready %}disabled{% endif %}>
+          Preview
+        </button>
+      </div>
+      <div class="actions">
+        <button type="button" id="resetBtn" class="ghost">Reset</button>
+        <span class="spinner" id="spinner">Generating with Gemini&hellip;</span>
+      </div>
+    </form>
+    <iframe id="preview" title="Resume preview"></iframe>
+  </div>
+</div>
+
+<script>
+  const form = document.getElementById('form');
+  const previewBtn = document.getElementById('previewBtn');
+  const iframe = document.getElementById('preview');
+  const spinner = document.getElementById('spinner');
+
+  const coverPreviewBtn = document.getElementById('coverPreviewBtn');
+
+  async function runPreview(url, btn) {
+    const data = new FormData(form);
+    data.set('format', 'preview');
+    spinner.style.display = 'inline';
+    btn.disabled = true;
+    try {
+      const res = await fetch(url, { method: 'POST', body: data });
+      const text = await res.text();
+      if (!res.ok) {
+        alert(text || 'Generation failed. Check the job description and Vertex settings.');
+      } else {
+        iframe.srcdoc = text;
+        iframe.style.display = 'block';
+        iframe.scrollIntoView({ behavior: 'smooth' });
+      }
+    } catch (e) {
+      alert('Request failed: ' + e);
+    } finally {
+      spinner.style.display = 'none';
+      btn.disabled = false;
+    }
+  }
+
+  previewBtn.addEventListener('click', () => runPreview('/generate', previewBtn));
+  coverPreviewBtn.addEventListener('click', () => runPreview('/cover-letter', coverPreviewBtn));
+
+  form.addEventListener('submit', () => {
+    spinner.style.display = 'inline';
+  });
+
+  const resetBtn = document.getElementById('resetBtn');
+  const textarea = form.querySelector('textarea[name="job_description"]');
+  resetBtn.addEventListener('click', () => {
+    textarea.value = '';
+    iframe.srcdoc = '';
+    iframe.style.display = 'none';
+    const banner = document.querySelector('.banner.error');
+    if (banner) banner.remove();
+    textarea.focus();
+  });
+</script>
+</body>
+</html>

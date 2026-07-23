@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+*.pdf
+vertex-sa.json
+*-sa.json

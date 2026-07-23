@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ contact.full_name }} - Resume</title>
+<style>
+  @page {
+    size: A4;
+    margin: 16mm 15mm;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1f2933;
+    font-size: 10.5pt;
+    line-height: 1.4;
+    margin: 0;
+  }
+  header {
+    border-bottom: 2px solid #2f5d8c;
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  h1 {
+    font-size: 22pt;
+    margin: 0 0 2px;
+    color: #16324f;
+    letter-spacing: 0.3px;
+  }
+  .headline {
+    font-size: 11pt;
+    color: #2f5d8c;
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .contact {
+    font-size: 9pt;
+    color: #52606d;
+  }
+  .contact span { white-space: nowrap; }
+  .contact .sep { color: #cbd2d9; padding: 0 6px; }
+  h2 {
+    font-size: 11pt;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #16324f;
+    border-bottom: 1px solid #d9e2ec;
+    padding-bottom: 3px;
+    margin: 16px 0 8px;
+  }
+  section { margin-bottom: 4px; }
+  p.summary { margin: 0; }
+  .job { margin-bottom: 11px; page-break-inside: avoid; }
+  .job-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .job-title { font-weight: 700; color: #16324f; }
+  .job-company { font-weight: 600; }
+  .job-meta { font-size: 9pt; color: #52606d; white-space: nowrap; }
+  ul { margin: 4px 0 0; padding-left: 16px; }
+  li { margin-bottom: 2px; }
+  .skill-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 5px;
+    page-break-inside: avoid;
+    font-size: 9.5pt;
+  }
+  .skill-cat {
+    flex: 0 0 130px;
+    font-weight: 700;
+    color: #16324f;
+  }
+  .skill-list { flex: 1; color: #1f2933; }
+  .edu { margin-bottom: 8px; page-break-inside: avoid; }
+  .edu-desc { margin: 3px 0 0; color: #3e4c59; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>{{ contact.full_name }}</h1>
+    {% if contact.headline %}<p class="headline">{{ contact.headline }}</p>{% endif %}
+    <div class="contact">
+      {%- set items = [] -%}
+      {%- if contact.location %}{% set _ = items.append(contact.location) %}{% endif -%}
+      {%- if contact.phone %}{% set _ = items.append(contact.phone) %}{% endif -%}
+      {%- if contact.email %}{% set _ = items.append(contact.email) %}{% endif -%}
+      {%- if contact.linkedin %}{% set _ = items.append(contact.linkedin) %}{% endif -%}
+      {%- for item in items -%}
+        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}
+      {%- endfor -%}
+    </div>
+  </header>
+
+  {% if resume.summary %}
+  <section>
+    <h2>Summary</h2>
+    <p class="summary">{{ resume.summary }}</p>
+  </section>
+  {% endif %}
+
+  {% if resume.experience %}
+  <section>
+    <h2>Experience</h2>
+    {% for job in resume.experience %}
+    <div class="job">
+      <div class="job-head">
+        <div>
+          <span class="job-title">{{ job.title }}</span>,
+          <span class="job-company">{{ job.company }}</span>
+        </div>
+        <div class="job-meta">
+          {{ job.period }}{% if job.location %} &middot; {{ job.location }}{% endif %}
+        </div>
+      </div>
+      {% if job.bullets %}
+      <ul>
+        {% for bullet in job.bullets %}<li>{{ bullet }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if resume.skill_groups %}
+  <section>
+    <h2>Skills</h2>
+    {% for group in resume.skill_groups %}
+    <div class="skill-group">
+      <span class="skill-cat">{{ group.category }}</span>
+      <span class="skill-list">{{ group.skills | join(', ') }}</span>
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if resume.education %}
+  <section>
+    <h2>Education</h2>
+    {% for e in resume.education %}
+    <div class="edu">
+      <div class="job-head">
+        <div>
+          <span class="job-title">{{ e.degree }}</span>,
+          <span class="job-company">{{ e.institution }}</span>
+        </div>
+        <div class="job-meta">
+          {{ e.period }}{% if e.location %} &middot; {{ e.location }}{% endif %}
+        </div>
+      </div>
+      {% if e.description %}<p class="edu-desc">{{ e.description }}</p>{% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+</body>
+</html>

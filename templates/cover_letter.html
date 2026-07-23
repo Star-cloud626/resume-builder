@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ contact.full_name }} - Cover Letter</title>
+<style>
+  @page { size: A4; margin: 22mm 20mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: #1f2933;
+    font-size: 11pt;
+    line-height: 1.6;
+    margin: 0;
+  }
+  header {
+    border-bottom: 2px solid #2f5d8c;
+    padding-bottom: 8px;
+    margin-bottom: 26px;
+  }
+  h1 { font-size: 20pt; margin: 0 0 2px; color: #16324f; }
+  .headline { font-size: 11pt; color: #2f5d8c; font-weight: 600; margin: 0 0 6px; }
+  .contact { font-size: 9pt; color: #52606d; }
+  .contact .sep { color: #cbd2d9; padding: 0 6px; }
+  .date { color: #52606d; margin: 0 0 20px; }
+  .greeting { margin: 0 0 14px; }
+  .body p { margin: 0 0 14px; }
+  .closing { margin: 26px 0 0; }
+  .sign-name { font-weight: 600; color: #16324f; margin-top: 2px; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>{{ contact.full_name }}</h1>
+    {% if contact.headline %}<p class="headline">{{ contact.headline }}</p>{% endif %}
+    <div class="contact">
+      {%- set items = [] -%}
+      {%- if contact.location %}{% set _ = items.append(contact.location) %}{% endif -%}
+      {%- if contact.phone %}{% set _ = items.append(contact.phone) %}{% endif -%}
+      {%- if contact.email %}{% set _ = items.append(contact.email) %}{% endif -%}
+      {%- if contact.linkedin %}{% set _ = items.append(contact.linkedin) %}{% endif -%}
+      {%- for item in items -%}
+        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}
+      {%- endfor -%}
+    </div>
+  </header>
+
+  {% if date %}<p class="date">{{ date }}</p>{% endif %}
+
+  <p class="greeting">Dear Hiring Manager,</p>
+
+  <div class="body">
+    <p>{{ body }}</p>
+  </div>
+
+  <div class="closing">
+    <div>Sincerely,</div>
+    <div class="sign-name">{{ contact.full_name }}</div>
+  </div>
+</body>
+</html>
