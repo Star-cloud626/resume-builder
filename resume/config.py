@@ -67,6 +67,7 @@ class Profile:
     experience: list[ExperienceSkeleton] = field(default_factory=list)
     education: list[Education] = field(default_factory=list)
     base_skills: list[str] = field(default_factory=list)
+    id: int | None = None  # DB primary key when loaded from the store
 
 
 def _env(name: str, default: str = "") -> str:

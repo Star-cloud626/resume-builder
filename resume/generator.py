@@ -94,12 +94,19 @@ Hard rules:
 - Use ONLY the companies, job titles and periods provided. Never invent, rename,
   merge or drop an employer. Return one entry per provided job, in the same order.
 - Write achievement-oriented bullet points per job, tiered by recency so the
-  finished resume fills about two pages:
-    * the most recent / current role: 5-6 bullets,
-    * middle roles: 4-5 bullets,
+  finished resume comfortably fills two to three pages:
+    * the most recent / current role: 6-7 bullets,
+    * middle roles: 5-6 bullets,
     * the oldest role(s): 3-4 bullets.
   Each bullet should be substantial (roughly one to two lines) - not a terse
   fragment. Start each with a strong past-tense verb.
+- EMPHASIS: in every bullet, wrap the 2-4 most important keywords or phrases in
+  **double asterisks** to render them bold (Markdown style). Emphasise the things
+  a recruiter scans for - core technologies, the headline metric, the system or
+  architecture owned (e.g. "cut p99 latency **62%** by adding **Redis** caching in
+  front of **PostgreSQL read replicas**"). Do NOT bold whole sentences or more than
+  ~4 spans per bullet; bold signal, not noise. Use asterisks ONLY for this - never
+  any other Markdown.
 - Bullets must be DEEPLY TECHNICAL, written by and for engineers. Each bullet must
   name concrete technologies, and most should also convey the technical HOW and WHY.
   Draw specifics from the target job description's stack and the candidate's skills:
@@ -331,3 +338,97 @@ def generate_cover_letter(
         raise GenerationError("The model returned no cover letter. Try again.")
 
     return parsed.body.strip()
+
+
+# --- Screening questions & answers ------------------------------------------
+
+
+@dataclass
+class QAPair:
+    question: str
+    answer: str
+
+
+class _Answer(BaseModel):
+    question: str
+    answer: str
+
+
+class _Answers(BaseModel):
+    items: list[_Answer]
+
+
+_ANSWERS_INSTRUCTION = """\
+You are helping a specific candidate answer a job application's screening questions.
+
+Hard rules:
+- Answer EACH question provided, once, in the SAME order. Return one item per
+  question, echoing the question text back verbatim in the "question" field.
+- Each answer is 3-5 sentences: substantial but focused. Never fewer than 3.
+- Write in the first person ("I"), professional and specific - not flowery.
+- Ground every answer in the candidate's real experience, seniority and skills, and
+  connect it to the target job description where relevant.
+- Do NOT invent employers, metrics, degrees or credentials the candidate does not
+  have. If a question asks about something absent from the profile, answer honestly
+  from transferable experience rather than fabricating.
+- Plain prose only: no Markdown, no bullet points, no headings.
+Return valid JSON matching the requested schema.\
+"""
+
+
+def parse_questions(raw: str) -> list[str]:
+    """Split a textarea blob into individual questions (one per non-empty line)."""
+    return [line.strip() for line in raw.splitlines() if line.strip()]
+
+
+def generate_answers(
+    profile: Profile,
+    job_description: str,
+    questions: list[str],
+    vertex: VertexSettings,
+) -> list[QAPair]:
+    """Answer each screening question in 3-5 sentences, grounded in the profile."""
+    if not questions:
+        raise GenerationError("Add at least one question.")
+    _require_vertex(job_description, vertex)
+
+    top_experience = ", ".join(
+        f"{e.title} at {e.company}" for e in profile.experience[:3]
+    ) or "(none provided)"
+    base_skills = ", ".join(profile.base_skills[:15]) if profile.base_skills else "(none)"
+    numbered = "\n".join(f"{i}. {q}" for i, q in enumerate(questions, 1))
+    prompt = (
+        f"Candidate name: {profile.contact.full_name}\n"
+        f"Candidate headline: {profile.contact.headline}\n"
+        f"Recent experience: {top_experience}\n"
+        f"Key skills: {base_skills}\n\n"
+        f"TARGET JOB DESCRIPTION:\n{job_description.strip()}\n\n"
+        f"SCREENING QUESTIONS (answer each, in order):\n{numbered}\n\n"
+        "Answer every question now (3-5 sentences each)."
+    )
+
+    try:
+        client = _client(vertex)  # keep a reference so its transport isn't GC-closed
+        response = client.models.generate_content(
+            model=vertex.model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=_ANSWERS_INSTRUCTION,
+                temperature=0.5,
+                response_mime_type="application/json",
+                response_schema=_Answers,
+            ),
+        )
+    except Exception as exc:  # noqa: BLE001 - surface a clean message to the UI
+        raise GenerationError(f"Vertex AI request failed: {exc}") from exc
+
+    parsed: _Answers | None = getattr(response, "parsed", None)
+    if parsed is None or not parsed.items:
+        raise GenerationError("The model returned no answers. Try again.")
+
+    # Pair answers back to the questions we asked, by order (model may reword them).
+    pairs: list[QAPair] = []
+    for i, q in enumerate(questions):
+        answer = parsed.items[i].answer.strip() if i < len(parsed.items) else ""
+        pairs.append(QAPair(question=q, answer=answer))
+    return pairs

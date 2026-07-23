@@ -29,7 +29,14 @@
     --faint:  #e4e7ec;   /* hairlines            */
     --accent: #2b4a6b;   /* labels, company, marks */
   }
-  @page { size: A4; margin: 17mm 17mm; }
+  @page {
+    size: A4;
+    margin: 17mm 17mm 15mm;
+    @bottom-left  { content: string(cand-name); font-family: var(--sans);
+                    font-size: 7.5pt; color: #9aa1aa; letter-spacing: 0.3px; }
+    @bottom-right { content: "Page " counter(page) " of " counter(pages);
+                    font-family: var(--sans); font-size: 7.5pt; color: #9aa1aa; }
+  }
   * { box-sizing: border-box; }
   body {
     font-family: var(--sans);
@@ -40,6 +47,16 @@
     font-feature-settings: "kern" 1, "liga" 1;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+  /* Screen-only: render the preview as a paper sheet on a soft canvas.
+     WeasyPrint uses @page/print media, so the PDF is unaffected. */
+  @media screen {
+    html { background: #eef1f5; }
+    body {
+      max-width: 210mm; margin: 22px auto; padding: 17mm 17mm 15mm;
+      background: #fff; border-radius: 4px;
+      box-shadow: 0 6px 26px rgba(16,24,40,.14);
+    }
   }
 
   /* ---- Header ---------------------------------------------------------- */
@@ -52,6 +69,7 @@
     color: var(--ink);
     margin: 0;
     line-height: 1.02;
+    string-set: cand-name content();   /* feeds the page footer */
   }
   .headline {
     font-size: 8.75pt;
@@ -110,6 +128,7 @@
   }
   ul { margin: 7px 0 0; padding: 0; list-style: none; }
   li { position: relative; padding-left: 15px; margin-bottom: 3.5px; color: var(--text); }
+  li b { font-weight: 700; color: var(--ink); }
   li::before {
     content: "\2022";                 /* dot marker */
     position: absolute;
@@ -167,7 +186,7 @@
   {% if resume.summary %}
   <section>
     <h2>Summary</h2>
-    <p class="summary">{{ resume.summary }}</p>
+    <p class="summary">{{ resume.summary | bold }}</p>
   </section>
   {% endif %}
 
@@ -185,7 +204,7 @@
       </div>
       {% if job.bullets %}
       <ul>
-        {% for bullet in job.bullets %}<li>{{ bullet }}</li>{% endfor %}
+        {% for bullet in job.bullets %}<li>{{ bullet | bold }}</li>{% endfor %}
       </ul>
       {% endif %}
     </div>
@@ -217,7 +236,7 @@
       <div class="row">
         <span class="edu-inst">{{ e.institution }}{% if e.location %} <span class="loc">&middot; {{ e.location }}</span>{% endif %}</span>
       </div>
-      {% if e.description %}<p class="edu-desc">{{ e.description }}</p>{% endif %}
+      {% if e.description %}<p class="edu-desc">{{ e.description | bold }}</p>{% endif %}
     </div>
     {% endfor %}
   </section>

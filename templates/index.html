@@ -1,180 +1,322 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Resume Builder</title>
+{% extends "base.html" %}
+{% block head %}
 <style>
-  :root { --accent: #2f5d8c; --ink: #1f2933; --muted: #52606d; --line: #d9e2ec; }
-  * { box-sizing: border-box; }
-  body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: var(--ink); margin: 0; background: #f5f7fa;
+  .grid { display: grid; grid-template-columns: 330px 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
+  .person-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .person-bar select { flex: 1; }
+  .person-actions { display: flex; gap: 8px; margin: 12px 0 4px; flex-wrap: wrap; }
+
+  .pf { font-size: 12.5px; color: var(--muted); margin-bottom: 4px; }
+  .pf b { color: var(--ink); font-weight: 600; }
+  .pname { font-size: 16px; font-weight: 700; color: var(--ink); margin: 2px 0 2px; }
+  .subh { margin: 16px 0 7px; font-size: 10.5px; font-weight: 700; letter-spacing: 1.4px;
+          text-transform: uppercase; color: var(--muted); }
+  ul.mini { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text); }
+  ul.mini li { margin-bottom: 4px; }
+  ul.mini em { color: var(--muted); font-style: normal; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: #eef2f7; color: #3f4a57; border-radius: 999px; padding: 3px 9px; font-size: 11.5px; }
+
+  .out-group { display: flex; align-items: center; gap: 10px; padding: 12px 0;
+               border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .out-group:first-of-type { border-top: 0; }
+  .out-label { font-size: 12px; font-weight: 700; color: var(--ink); min-width: 108px; }
+  .out-hint { font-size: 11.5px; color: var(--muted); }
+  .footer-actions { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+  .spinner { display: none; font-size: 12.5px; color: var(--muted); }
+  .spinner.on { display: inline; }
+
+  /* ---- Preview modal ---- */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(16,24,40,.5);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    display: none; align-items: center; justify-content: center; z-index: 50;
+    padding: 28px;
   }
-  header.top {
-    background: var(--accent); color: #fff; padding: 18px 24px;
+  .modal-overlay.on { display: flex; animation: fade .14s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: #eef1f5; border-radius: 16px; width: min(900px, 100%);
+    height: min(92vh, 1040px); display: flex; flex-direction: column;
+    box-shadow: 0 30px 70px rgba(16,24,40,.4); overflow: hidden;
   }
-  header.top h1 { margin: 0; font-size: 18pt; }
-  header.top p { margin: 4px 0 0; opacity: 0.85; font-size: 10pt; }
-  .wrap { max-width: 1000px; margin: 22px auto; padding: 0 20px; display: grid;
-          grid-template-columns: 320px 1fr; gap: 22px; }
-  @media (max-width: 820px) { .wrap { grid-template-columns: 1fr; } }
-  .card { background: #fff; border: 1px solid var(--line); border-radius: 8px;
-          padding: 18px; }
-  .card h2 { margin: 0 0 10px; font-size: 12pt; color: #16324f; }
-  .field { font-size: 9.5pt; color: var(--muted); margin-bottom: 6px; }
-  .field b { color: var(--ink); font-weight: 600; }
-  ul.jobs { margin: 6px 0 0; padding-left: 16px; font-size: 9.5pt; color: var(--muted); }
-  ul.jobs li { margin-bottom: 3px; }
-  textarea {
-    width: 100%; min-height: 260px; resize: vertical; padding: 12px;
-    border: 1px solid var(--line); border-radius: 6px; font-size: 10.5pt;
-    font-family: inherit; line-height: 1.45;
+  .modal-head {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 13px 16px 13px 20px; background: #fff;
+    border-bottom: 1px solid var(--line); flex: none;
   }
-  .actions { margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
-  .group-label { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.6px;
-                 color: var(--muted); font-weight: 700; min-width: 84px; }
-  button {
-    background: var(--accent); color: #fff; border: 0; border-radius: 6px;
-    padding: 10px 18px; font-size: 10.5pt; font-weight: 600; cursor: pointer;
+  .modal-head h3 {
+    margin: 0; font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1.5px;
   }
-  button.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
-  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--line); }
-  button.ghost:hover { color: #a12626; border-color: #f5c2c2; }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
-  .banner { padding: 10px 14px; border-radius: 6px; font-size: 10pt; margin-bottom: 14px; }
-  .banner.warn { background: #fffbea; border: 1px solid #f7e6a2; color: #8d6b00; }
-  .banner.error { background: #fff0f0; border: 1px solid #f5c2c2; color: #a12626; }
-  iframe { width: 100%; height: 900px; border: 1px solid var(--line); border-radius: 8px;
-           margin-top: 16px; background: #fff; display: none; }
-  .spinner { display: none; font-size: 10pt; color: var(--muted); margin-top: 10px; }
-  code { background: #eef2f7; padding: 1px 5px; border-radius: 3px; }
+  .modal-tools { display: flex; align-items: center; gap: 6px; }
+  .icon-btn {
+    display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+    font-family: inherit;
+  }
+  .icon-btn:hover { background: #f2f6fb; color: var(--accent); border-color: #cdd8e6; }
+  .icon-btn.copied { color: #067647; border-color: #a9e5c3; background: #ecfdf3; }
+  .icon-btn svg { width: 15px; height: 15px; }
+  .modal-close {
+    border: 0; background: transparent; cursor: pointer; color: var(--muted);
+    font-size: 22px; line-height: 1; padding: 3px 9px; border-radius: 8px;
+    display: inline-flex; align-items: center;
+  }
+  .modal-close:hover { background: #f1f3f6; color: var(--ink); }
+  .modal-body { flex: 1; min-height: 0; overflow: hidden; }
+  .modal-body iframe { width: 100%; height: 100%; border: 0; background: #eef1f5; }
 </style>
-</head>
-<body>
-<header class="top">
-  <h1>Resume Builder</h1>
-  <p>Your details stay fixed &mdash; paste a job description and Gemini tailors the rest.</p>
-</header>
+{% endblock %}
 
-<div class="wrap">
+{% block topright %}
+  <a class="btn secondary sm" href="{{ url_for('person_new') }}">+ New person</a>
+{% endblock %}
+
+{% block content %}
+{% if request.args.get('saved') %}
+  <div class="banner ok">Saved.</div>
+{% endif %}
+{% if request.args.get('deleted') %}
+  <div class="banner ok">Person deleted.</div>
+{% endif %}
+{% if not vertex_ready %}
+  <div class="banner warn">
+    Vertex AI isn't configured yet. Set <code>GOOGLE_CLOUD_PROJECT</code> in your
+    <code>.env</code> and authenticate before generating.
+  </div>
+{% endif %}
+{% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+
+<div class="grid">
+  <!-- ---------------- Left: person picker + profile ---------------- -->
   <div class="card">
-    <h2>Your fixed profile</h2>
-    <div class="field"><b>{{ profile.contact.full_name }}</b></div>
-    {% if profile.contact.headline %}<div class="field">{{ profile.contact.headline }}</div>{% endif %}
-    {% if profile.contact.location %}<div class="field">{{ profile.contact.location }}</div>{% endif %}
-    {% if profile.contact.email %}<div class="field">{{ profile.contact.email }}</div>{% endif %}
-    {% if profile.contact.phone %}<div class="field">{{ profile.contact.phone }}</div>{% endif %}
-    {% if profile.contact.linkedin %}<div class="field">{{ profile.contact.linkedin }}</div>{% endif %}
+    <h2 class="section">Candidate</h2>
+    {% if people %}
+      <form class="person-bar" method="get" action="{{ url_for('index') }}">
+        <select name="person" onchange="this.form.submit()">
+          {% for p in people %}
+          <option value="{{ p.id }}" {% if p.id == active_id %}selected{% endif %}>
+            {{ p.full_name }}{% if p.headline %} — {{ p.headline }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      <div class="person-actions">
+        <a class="btn secondary sm" href="{{ url_for('person_edit', person_id=active_id) }}">Edit</a>
+        <form method="post" action="{{ url_for('person_delete', person_id=active_id) }}"
+              onsubmit="return confirm('Delete this person permanently?');">
+          <button type="submit" class="btn danger sm">Delete</button>
+        </form>
+      </div>
 
-    <h2 style="margin-top:16px;">Work history</h2>
-    <ul class="jobs">
-      {% for e in profile.experience %}
-      <li><b>{{ e.title }}</b> &mdash; {{ e.company }} <em>({{ e.period }})</em></li>
-      {% else %}
-      <li>No entries yet &mdash; edit <code>profile.json</code>.</li>
-      {% endfor %}
-    </ul>
+      {% if profile %}
+      <div class="pname">{{ profile.contact.full_name }}</div>
+      {% if profile.contact.headline %}<div class="pf">{{ profile.contact.headline }}</div>{% endif %}
+      {% if profile.contact.location %}<div class="pf">{{ profile.contact.location }}</div>{% endif %}
+      {% if profile.contact.email %}<div class="pf">{{ profile.contact.email }}</div>{% endif %}
+      {% if profile.contact.phone %}<div class="pf">{{ profile.contact.phone }}</div>{% endif %}
+      {% if profile.contact.linkedin %}<div class="pf">{{ profile.contact.linkedin }}</div>{% endif %}
 
-    {% if profile.education %}
-    <h2 style="margin-top:16px;">Education</h2>
-    <ul class="jobs">
-      {% for e in profile.education %}
-      <li>{{ e.degree }} &mdash; {{ e.institution }}</li>
-      {% endfor %}
-    </ul>
+      <div class="subh">Work history</div>
+      <ul class="mini">
+        {% for e in profile.experience %}
+        <li><b>{{ e.title }}</b> — {{ e.company }} <em>({{ e.period }})</em></li>
+        {% else %}<li class="pf">No roles yet.</li>{% endfor %}
+      </ul>
+
+      {% if profile.education %}
+      <div class="subh">Education</div>
+      <ul class="mini">
+        {% for e in profile.education %}<li>{{ e.degree }} — {{ e.institution }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+
+      {% if profile.base_skills %}
+      <div class="subh">Base skills</div>
+      <div class="chips">
+        {% for s in profile.base_skills %}<span class="chip">{{ s }}</span>{% endfor %}
+      </div>
+      {% endif %}
+      {% endif %}
+    {% else %}
+      <p class="pf">No candidates yet.</p>
+      <a class="btn sm" href="{{ url_for('person_new') }}">+ Add your first person</a>
     {% endif %}
   </div>
 
+  <!-- ---------------- Right: generation ---------------- -->
   <div class="card">
-    {% if not vertex_ready %}
-    <div class="banner warn">
-      Vertex AI isn't configured yet. Set <code>GOOGLE_CLOUD_PROJECT</code> in your
-      <code>.env</code> and authenticate before generating.
-    </div>
-    {% endif %}
-    {% if error %}
-    <div class="banner error">{{ error }}</div>
-    {% endif %}
+    <h2 class="section">Generate</h2>
+    <form id="form" method="post" action="{{ url_for('generate_route') }}">
+      <input type="hidden" name="person_id" value="{{ active_id or '' }}">
 
-    <h2>Job description</h2>
-    <form id="form" method="post" action="/generate">
-      <textarea name="job_description" placeholder="Paste the full job description here...">{{ job_description or "" }}</textarea>
-      <div class="actions">
-        <span class="group-label">Resume</span>
-        <button type="submit" formaction="/generate" name="format" value="pdf" {% if not vertex_ready %}disabled{% endif %}>
-          Download PDF
-        </button>
-        <button type="button" id="previewBtn" class="secondary" {% if not vertex_ready %}disabled{% endif %}>
-          Preview
-        </button>
+      <label class="lbl" for="jd">Job description</label>
+      <textarea id="jd" name="job_description" style="min-height:220px"
+        placeholder="Paste the full job description here…">{{ job_description or "" }}</textarea>
+
+      <div style="margin-top:18px;">
+        <div class="out-group">
+          <span class="out-label">Resume</span>
+          <button type="submit" formaction="{{ url_for('generate_route') }}" name="format" value="pdf"
+            class="btn" {% if not can_generate %}disabled{% endif %}>Download PDF</button>
+          <button type="button" class="btn secondary" data-preview="{{ url_for('generate_route') }}"
+            data-title="Resume" {% if not can_generate %}disabled{% endif %}>Preview</button>
+          <span class="out-hint">2–3 pages, keywords bolded</span>
+        </div>
+
+        <div class="out-group">
+          <span class="out-label">Cover letter</span>
+          <button type="submit" formaction="{{ url_for('cover_letter_route') }}" name="format" value="pdf"
+            class="btn" {% if not can_generate %}disabled{% endif %}>Download PDF</button>
+          <button type="button" class="btn secondary" data-preview="{{ url_for('cover_letter_route') }}"
+            data-title="Cover letter" {% if not can_generate %}disabled{% endif %}>Preview</button>
+        </div>
       </div>
-      <div class="actions">
-        <span class="group-label">Cover letter</span>
-        <button type="submit" formaction="/cover-letter" name="format" value="pdf" {% if not vertex_ready %}disabled{% endif %}>
-          Download PDF
-        </button>
-        <button type="button" id="coverPreviewBtn" class="secondary" {% if not vertex_ready %}disabled{% endif %}>
-          Preview
-        </button>
+
+      <label class="lbl" for="questions" style="margin-top:18px;">Application questions
+        <span style="font-weight:400;color:var(--muted);">— one per line, AI answers each in 3–5 sentences</span>
+      </label>
+      <textarea id="questions" name="questions" style="min-height:110px"
+        placeholder="Why do you want to work here?&#10;Describe a system you scaled and how.&#10;How do you approach code review?">{{ questions or "" }}</textarea>
+      <div class="out-group" style="border-top:0;">
+        <span class="out-label">Answers</span>
+        <button type="button" class="btn answers-btn" data-preview="{{ url_for('answers_route') }}"
+          data-title="Answers" {% if not can_generate %}disabled{% endif %}>Preview</button>
+        <span class="out-hint" id="answersHint">Add a question above to enable</span>
       </div>
-      <div class="actions">
-        <button type="button" id="resetBtn" class="ghost">Reset</button>
-        <span class="spinner" id="spinner">Generating with Gemini&hellip;</span>
+
+      <div class="footer-actions">
+        <button type="button" id="resetBtn" class="btn ghost">Reset</button>
+        <span class="spinner" id="spinner">Generating with Gemini…</span>
       </div>
     </form>
-    <iframe id="preview" title="Resume preview"></iframe>
   </div>
 </div>
 
+<!-- Preview modal -->
+<div class="modal-overlay" id="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modalTitle">Preview</h3>
+      <div class="modal-tools">
+        <button type="button" class="icon-btn" id="copyBtn" title="Copy text to clipboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+          </svg>
+          <span id="copyLabel">Copy text</span>
+        </button>
+        <button type="button" class="modal-close" id="modalClose" aria-label="Close preview">&times;</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <iframe id="preview" title="Preview"></iframe>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
 <script>
   const form = document.getElementById('form');
-  const previewBtn = document.getElementById('previewBtn');
   const iframe = document.getElementById('preview');
   const spinner = document.getElementById('spinner');
+  const modal = document.getElementById('modal');
+  const modalTitle = document.getElementById('modalTitle');
+  const copyBtn = document.getElementById('copyBtn');
+  const copyLabel = document.getElementById('copyLabel');
 
-  const coverPreviewBtn = document.getElementById('coverPreviewBtn');
+  function openModal(title) {
+    modalTitle.textContent = title + ' preview';
+    resetCopyBtn();
+    modal.classList.add('on');
+  }
+  function closeModal() {
+    modal.classList.remove('on');
+    iframe.srcdoc = '';
+  }
+  function resetCopyBtn() {
+    copyBtn.classList.remove('copied');
+    copyLabel.textContent = 'Copy text';
+  }
 
   async function runPreview(url, btn) {
     const data = new FormData(form);
     data.set('format', 'preview');
-    spinner.style.display = 'inline';
+    spinner.classList.add('on');
     btn.disabled = true;
     try {
       const res = await fetch(url, { method: 'POST', body: data });
       const text = await res.text();
       if (!res.ok) {
-        alert(text || 'Generation failed. Check the job description and Vertex settings.');
+        alert(text || 'Generation failed. Check the inputs and Vertex settings.');
       } else {
         iframe.srcdoc = text;
-        iframe.style.display = 'block';
-        iframe.scrollIntoView({ behavior: 'smooth' });
+        openModal(btn.dataset.title || 'Document');
       }
     } catch (e) {
       alert('Request failed: ' + e);
     } finally {
-      spinner.style.display = 'none';
+      spinner.classList.remove('on');
       btn.disabled = false;
     }
   }
 
-  previewBtn.addEventListener('click', () => runPreview('/generate', previewBtn));
-  coverPreviewBtn.addEventListener('click', () => runPreview('/cover-letter', coverPreviewBtn));
+  // Copy the visible text of the previewed document to the clipboard.
+  async function copyPreviewText() {
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    const text = (doc?.body?.innerText || '').trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      // Fallback for environments without the async clipboard API.
+      const ta = document.createElement('textarea');
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+    }
+    copyBtn.classList.add('copied');
+    copyLabel.textContent = 'Copied!';
+    setTimeout(resetCopyBtn, 1600);
+  }
 
-  form.addEventListener('submit', () => {
-    spinner.style.display = 'inline';
+  document.querySelectorAll('[data-preview]').forEach(btn => {
+    btn.addEventListener('click', () => runPreview(btn.dataset.preview, btn));
   });
 
-  const resetBtn = document.getElementById('resetBtn');
-  const textarea = form.querySelector('textarea[name="job_description"]');
-  resetBtn.addEventListener('click', () => {
-    textarea.value = '';
-    iframe.srcdoc = '';
-    iframe.style.display = 'none';
-    const banner = document.querySelector('.banner.error');
-    if (banner) banner.remove();
-    textarea.focus();
+  // Answers need at least one question — disable those buttons while empty.
+  const canGenerate = {{ 'true' if can_generate else 'false' }};
+  const questions = document.getElementById('questions');
+  const answersBtns = document.querySelectorAll('.answers-btn');
+  const answersHint = document.getElementById('answersHint');
+  function syncAnswers() {
+    const empty = questions.value.trim() === '';
+    answersBtns.forEach(b => { b.disabled = !canGenerate || empty; });
+    if (answersHint) answersHint.style.display = (canGenerate && empty) ? '' : 'none';
+  }
+  if (canGenerate) questions.addEventListener('input', syncAnswers);
+  syncAnswers();
+
+  copyBtn.addEventListener('click', copyPreviewText);
+  document.getElementById('modalClose').addEventListener('click', closeModal);
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal.classList.contains('on')) closeModal();
+  });
+
+  form.addEventListener('submit', () => spinner.classList.add('on'));
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    document.getElementById('jd').value = '';
+    document.getElementById('questions').value = '';
+    closeModal();
+    const b = document.querySelector('.banner.error'); if (b) b.remove();
+    document.getElementById('jd').focus();
   });
 </script>
-</body>
-</html>
+{% endblock %}

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if profile and profile.id else "New" }} person — Resume Builder{% endblock %}
+{% block head %}
+<style>
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .row2 { grid-template-columns: 1fr; } }
+  .fld { margin-bottom: 14px; }
+  .repeat-row { display: grid; grid-template-columns: 1fr 1fr 0.8fr 0.8fr auto; gap: 10px;
+                align-items: end; margin-bottom: 10px; }
+  @media (max-width: 720px) { .repeat-row { grid-template-columns: 1fr 1fr; } }
+  .repeat-row .rm { background: #fff; color: #b42318; border: 1px solid #f0c4bf;
+                    border-radius: 8px; padding: 9px 11px; cursor: pointer; font-size: 13px; }
+  .form-actions { display: flex; gap: 12px; margin-top: 8px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 0 0 12px; }
+</style>
+{% endblock %}
+
+{% block topright %}<a class="btn ghost sm" href="{{ url_for('index') }}">← Back</a>{% endblock %}
+
+{% block content %}
+{% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+{% set c = profile.contact if profile else None %}
+
+<form method="post" action="{{ action }}">
+  <div class="card">
+    <h2 class="section">{{ "Edit candidate" if profile and profile.id else "New candidate" }}</h2>
+    <div class="row2">
+      <div class="fld"><label class="lbl">Full name *</label>
+        <input type="text" name="full_name" required value="{{ c.full_name if c else '' }}"></div>
+      <div class="fld"><label class="lbl">Headline</label>
+        <input type="text" name="headline" placeholder="Senior Software Engineer" value="{{ c.headline if c else '' }}"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label class="lbl">Email</label>
+        <input type="email" name="email" value="{{ c.email if c else '' }}"></div>
+      <div class="fld"><label class="lbl">Phone</label>
+        <input type="text" name="phone" value="{{ c.phone if c else '' }}"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label class="lbl">Location</label>
+        <input type="text" name="location" placeholder="Sydney, Australia" value="{{ c.location if c else '' }}"></div>
+      <div class="fld"><label class="lbl">LinkedIn</label>
+        <input type="text" name="linkedin" placeholder="linkedin.com/in/…" value="{{ c.linkedin if c else '' }}"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 class="section">Work history</h2>
+    <p class="hint">Companies, titles and periods are fixed facts — the AI writes the bullet points at generation time.</p>
+    <div id="exp-rows">
+      {% for e in (profile.experience if profile else []) %}
+      <div class="repeat-row">
+        <div><label class="lbl">Company</label><input type="text" name="exp_company" value="{{ e.company }}"></div>
+        <div><label class="lbl">Title</label><input type="text" name="exp_title" value="{{ e.title }}"></div>
+        <div><label class="lbl">Period</label><input type="text" name="exp_period" value="{{ e.period }}"></div>
+        <div><label class="lbl">Location</label><input type="text" name="exp_location" value="{{ e.location }}"></div>
+        <button type="button" class="rm" onclick="this.closest('.repeat-row').remove()">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn secondary sm" onclick="addRow('exp')">+ Add role</button>
+  </div>
+
+  <div class="card">
+    <h2 class="section">Education</h2>
+    <div id="edu-rows">
+      {% for e in (profile.education if profile else []) %}
+      <div class="repeat-row">
+        <div><label class="lbl">Institution</label><input type="text" name="edu_institution" value="{{ e.institution }}"></div>
+        <div><label class="lbl">Degree</label><input type="text" name="edu_degree" value="{{ e.degree }}"></div>
+        <div><label class="lbl">Period</label><input type="text" name="edu_period" value="{{ e.period }}"></div>
+        <div><label class="lbl">Location</label><input type="text" name="edu_location" value="{{ e.location }}"></div>
+        <button type="button" class="rm" onclick="this.closest('.repeat-row').remove()">Remove</button>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn secondary sm" onclick="addRow('edu')">+ Add education</button>
+  </div>
+
+  <div class="card">
+    <h2 class="section">Base skills</h2>
+    <p class="hint">Comma- or line-separated. The AI expands and tailors these per job.</p>
+    <textarea name="skills" style="min-height:90px"
+      placeholder="Python, TypeScript, React, PostgreSQL, Docker, Kubernetes">{{ (profile.base_skills | join(', ')) if profile else '' }}</textarea>
+  </div>
+
+  <div class="form-actions">
+    <button type="submit" class="btn">Save person</button>
+    <a class="btn ghost" href="{{ url_for('index') }}">Cancel</a>
+  </div>
+</form>
+
+<template id="exp-tpl">
+  <div class="repeat-row">
+    <div><label class="lbl">Company</label><input type="text" name="exp_company"></div>
+    <div><label class="lbl">Title</label><input type="text" name="exp_title"></div>
+    <div><label class="lbl">Period</label><input type="text" name="exp_period"></div>
+    <div><label class="lbl">Location</label><input type="text" name="exp_location"></div>
+    <button type="button" class="rm" onclick="this.closest('.repeat-row').remove()">Remove</button>
+  </div>
+</template>
+<template id="edu-tpl">
+  <div class="repeat-row">
+    <div><label class="lbl">Institution</label><input type="text" name="edu_institution"></div>
+    <div><label class="lbl">Degree</label><input type="text" name="edu_degree"></div>
+    <div><label class="lbl">Period</label><input type="text" name="edu_period"></div>
+    <div><label class="lbl">Location</label><input type="text" name="edu_location"></div>
+    <button type="button" class="rm" onclick="this.closest('.repeat-row').remove()">Remove</button>
+  </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function addRow(kind) {
+    const tpl = document.getElementById(kind + '-tpl');
+    document.getElementById(kind + '-rows').appendChild(tpl.content.cloneNode(true));
+  }
+  // Start new forms with one empty row of each if none present.
+  ['exp', 'edu'].forEach(k => {
+    if (!document.querySelector('#' + k + '-rows .repeat-row')) addRow(k);
+  });
+</script>
+{% endblock %}
