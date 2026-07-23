@@ -4,35 +4,73 @@
 <meta charset="utf-8">
 <title>{{ contact.full_name }} - Cover Letter</title>
 <style>
+  @font-face { font-family:"Inter"; font-weight:400; font-style:normal;
+    src:url("assets/fonts/Inter-Regular.ttf")  format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:500; font-style:normal;
+    src:url("assets/fonts/Inter-Medium.ttf")   format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:600; font-style:normal;
+    src:url("assets/fonts/Inter-SemiBold.ttf") format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:700; font-style:normal;
+    src:url("assets/fonts/Inter-Bold.ttf")     format("truetype"); }
+  @font-face { font-family:"Source Serif 4"; font-weight:700; font-style:normal;
+    src:url("assets/fonts/SourceSerif4-Bold.ttf") format("truetype"); }
+
+  :root {
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans:  "Inter", "Liberation Sans", Arial, sans-serif;
+    --ink:   #1a1c20;
+    --text:  #34393f;
+    --muted: #737a83;
+    --faint: #e4e7ec;
+    --accent:#2b4a6b;
+  }
   @page { size: A4; margin: 22mm 20mm; }
   * { box-sizing: border-box; }
   body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #1f2933;
-    font-size: 11pt;
-    line-height: 1.6;
+    font-family: var(--sans);
+    color: var(--text);
+    font-size: 10.75pt;
+    line-height: 1.62;
     margin: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  header {
-    border-bottom: 2px solid #2f5d8c;
-    padding-bottom: 8px;
-    margin-bottom: 26px;
+  header { margin-bottom: 30px; }
+  h1 {
+    font-family: var(--serif);
+    font-size: 23pt;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.02;
   }
-  h1 { font-size: 20pt; margin: 0 0 2px; color: #16324f; }
-  .headline { font-size: 11pt; color: #2f5d8c; font-weight: 600; margin: 0 0 6px; }
-  .contact { font-size: 9pt; color: #52606d; }
-  .contact .sep { color: #cbd2d9; padding: 0 6px; }
-  .date { color: #52606d; margin: 0 0 20px; }
+  .headline {
+    font-size: 8.75pt;
+    text-transform: uppercase;
+    letter-spacing: 2.8px;
+    font-weight: 600;
+    color: var(--accent);
+    margin: 8px 0 0;
+  }
+  .rule { height: 1px; background: var(--faint); margin: 13px 0 9px; }
+  .contact { font-size: 8.75pt; color: var(--muted); }
+  .contact span { white-space: nowrap; }
+  .contact .sep { color: #c8ccd2; padding: 0 7px; }
+
+  .date { color: var(--muted); margin: 0 0 22px; }
   .greeting { margin: 0 0 14px; }
   .body p { margin: 0 0 14px; }
-  .closing { margin: 26px 0 0; }
-  .sign-name { font-weight: 600; color: #16324f; margin-top: 2px; }
+  .closing { margin: 28px 0 0; }
+  .sign-name { font-family: var(--serif); font-weight: 700; color: var(--ink); font-size: 12pt; margin-top: 4px; }
 </style>
 </head>
 <body>
   <header>
     <h1>{{ contact.full_name }}</h1>
     {% if contact.headline %}<p class="headline">{{ contact.headline }}</p>{% endif %}
+    <div class="rule"></div>
     <div class="contact">
       {%- set items = [] -%}
       {%- if contact.location %}{% set _ = items.append(contact.location) %}{% endif -%}
@@ -40,7 +78,7 @@
       {%- if contact.email %}{% set _ = items.append(contact.email) %}{% endif -%}
       {%- if contact.linkedin %}{% set _ = items.append(contact.linkedin) %}{% endif -%}
       {%- for item in items -%}
-        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}
+        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">&middot;</span>{% endif %}
       {%- endfor -%}
     </div>
   </header>

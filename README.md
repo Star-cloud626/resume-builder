@@ -24,7 +24,7 @@ to that role, using the same real employers and dates every time.
 ## Setup
 
 ```bash
-cd "resume builder"
+cd "resume-builder"
 
 # 1. Create a virtual environment and install dependencies
 python3 -m venv .venv

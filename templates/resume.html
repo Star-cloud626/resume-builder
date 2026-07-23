@@ -4,84 +4,154 @@
 <meta charset="utf-8">
 <title>{{ contact.full_name }} - Resume</title>
 <style>
-  @page {
-    size: A4;
-    margin: 16mm 15mm;
+  /* ---- Bundled typefaces (rendered into the PDF, no system deps) ------- */
+  @font-face { font-family:"Inter"; font-weight:400; font-style:normal;
+    src:url("assets/fonts/Inter-Regular.ttf")  format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:500; font-style:normal;
+    src:url("assets/fonts/Inter-Medium.ttf")   format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:600; font-style:normal;
+    src:url("assets/fonts/Inter-SemiBold.ttf") format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:700; font-style:normal;
+    src:url("assets/fonts/Inter-Bold.ttf")     format("truetype"); }
+  @font-face { font-family:"Source Serif 4"; font-weight:400; font-style:normal;
+    src:url("assets/fonts/SourceSerif4-Regular.ttf") format("truetype"); }
+  @font-face { font-family:"Source Serif 4"; font-weight:700; font-style:normal;
+    src:url("assets/fonts/SourceSerif4-Bold.ttf")    format("truetype"); }
+
+  /* ---- Design tokens --------------------------------------------------- */
+  :root {
+    --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans:  "Inter", "Liberation Sans", Arial, sans-serif;
+    --ink:    #1a1c20;   /* name                 */
+    --head:   #21262e;   /* titles               */
+    --text:   #34393f;   /* body copy            */
+    --muted:  #737a83;   /* dates, meta          */
+    --faint:  #e4e7ec;   /* hairlines            */
+    --accent: #2b4a6b;   /* labels, company, marks */
   }
+  @page { size: A4; margin: 17mm 17mm; }
   * { box-sizing: border-box; }
   body {
-    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-    color: #1f2933;
-    font-size: 10.5pt;
-    line-height: 1.4;
+    font-family: var(--sans);
+    color: var(--text);
+    font-size: 10.25pt;
+    line-height: 1.46;
     margin: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
-  header {
-    border-bottom: 2px solid #2f5d8c;
-    padding-bottom: 8px;
-    margin-bottom: 14px;
-  }
+
+  /* ---- Header ---------------------------------------------------------- */
+  header { margin-bottom: 20px; }
   h1 {
-    font-size: 22pt;
-    margin: 0 0 2px;
-    color: #16324f;
-    letter-spacing: 0.3px;
+    font-family: var(--serif);
+    font-size: 27pt;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    color: var(--ink);
+    margin: 0;
+    line-height: 1.02;
   }
   .headline {
-    font-size: 11pt;
-    color: #2f5d8c;
+    font-size: 8.75pt;
+    text-transform: uppercase;
+    letter-spacing: 2.8px;
     font-weight: 600;
-    margin: 0 0 6px;
+    color: var(--accent);
+    margin: 8px 0 0;
   }
+  .rule { height: 1px; background: var(--faint); margin: 13px 0 9px; }
   .contact {
-    font-size: 9pt;
-    color: #52606d;
+    font-size: 8.75pt;
+    color: var(--muted);
+    font-weight: 400;
   }
   .contact span { white-space: nowrap; }
-  .contact .sep { color: #cbd2d9; padding: 0 6px; }
+  .contact .sep { color: #c8ccd2; padding: 0 7px; }
+
+  /* ---- Section labels -------------------------------------------------- */
   h2 {
-    font-size: 11pt;
+    font-family: var(--sans);
+    font-size: 8.5pt;
     text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #16324f;
-    border-bottom: 1px solid #d9e2ec;
-    padding-bottom: 3px;
-    margin: 16px 0 8px;
+    letter-spacing: 2.4px;
+    font-weight: 700;
+    color: var(--accent);
+    border-bottom: 1px solid var(--faint);
+    padding-bottom: 5px;
+    margin: 20px 0 10px;
   }
-  section { margin-bottom: 4px; }
-  p.summary { margin: 0; }
-  .job { margin-bottom: 11px; page-break-inside: avoid; }
-  .job-head {
+  section { margin: 0; }
+  p.summary { margin: 0; color: var(--text); }
+
+  /* ---- Experience ------------------------------------------------------ */
+  .job { margin-bottom: 13px; page-break-inside: avoid; }
+  .job:last-child, .edu:last-child { margin-bottom: 0; }
+  .row {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
+    gap: 12px;
+    line-height: 1.25;
   }
-  .job-title { font-weight: 700; color: #16324f; }
-  .job-company { font-weight: 600; }
-  .job-meta { font-size: 9pt; color: #52606d; white-space: nowrap; }
-  ul { margin: 4px 0 0; padding-left: 16px; }
-  li { margin-bottom: 2px; }
+  /* flex:1 0 auto keeps the title on one line — WeasyPrint otherwise shrinks
+     a shrinkable flex item down to its longest word. */
+  .row > .job-title, .row > .edu-degree { flex: 1 0 auto; }
+  .row > .job-meta { flex: 0 0 auto; }
+  .job-title { font-weight: 600; color: var(--head); font-size: 10.75pt; letter-spacing: -0.1px; }
+  .job-company { color: var(--accent); font-weight: 500; margin-top: 2px; }
+  .job-company .loc { color: var(--muted); font-weight: 400; }
+  .job-meta {
+    font-size: 8.75pt;
+    color: var(--muted);
+    white-space: nowrap;
+    font-feature-settings: "tnum" 1;
+  }
+  ul { margin: 7px 0 0; padding: 0; list-style: none; }
+  li { position: relative; padding-left: 15px; margin-bottom: 3.5px; color: var(--text); }
+  li::before {
+    content: "\2022";                 /* dot marker */
+    position: absolute;
+    left: 2px;
+    top: -0.5px;
+    color: var(--accent);
+    font-size: 9pt;
+  }
+
+  /* ---- Skills ---------------------------------------------------------- */
   .skill-group {
     display: flex;
-    gap: 8px;
-    margin-bottom: 5px;
+    gap: 16px;
+    margin-bottom: 6.5px;
     page-break-inside: avoid;
-    font-size: 9.5pt;
+    font-size: 9.75pt;
   }
+  .skill-group:last-child { margin-bottom: 0; }
   .skill-cat {
-    flex: 0 0 130px;
+    flex: 0 0 120px;
+    text-transform: uppercase;
+    letter-spacing: 1.1px;
+    font-size: 8pt;
     font-weight: 700;
-    color: #16324f;
+    color: var(--muted);
+    padding-top: 2px;
   }
-  .skill-list { flex: 1; color: #1f2933; }
-  .edu { margin-bottom: 8px; page-break-inside: avoid; }
-  .edu-desc { margin: 3px 0 0; color: #3e4c59; }
+  .skill-list { flex: 1; color: var(--text); }
+
+  /* ---- Education ------------------------------------------------------- */
+  .edu { margin-bottom: 10px; page-break-inside: avoid; }
+  .edu-degree { font-weight: 600; color: var(--head); }
+  .edu-inst { color: var(--accent); font-weight: 500; margin-top: 2px; }
+  .edu-inst .loc { color: var(--muted); font-weight: 400; }
+  .edu-desc { margin: 4px 0 0; color: var(--text); }
 </style>
 </head>
 <body>
   <header>
     <h1>{{ contact.full_name }}</h1>
     {% if contact.headline %}<p class="headline">{{ contact.headline }}</p>{% endif %}
+    <div class="rule"></div>
     <div class="contact">
       {%- set items = [] -%}
       {%- if contact.location %}{% set _ = items.append(contact.location) %}{% endif -%}
@@ -89,7 +159,7 @@
       {%- if contact.email %}{% set _ = items.append(contact.email) %}{% endif -%}
       {%- if contact.linkedin %}{% set _ = items.append(contact.linkedin) %}{% endif -%}
       {%- for item in items -%}
-        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">|</span>{% endif %}
+        <span>{{ item }}</span>{% if not loop.last %}<span class="sep">&middot;</span>{% endif %}
       {%- endfor -%}
     </div>
   </header>
@@ -106,14 +176,12 @@
     <h2>Experience</h2>
     {% for job in resume.experience %}
     <div class="job">
-      <div class="job-head">
-        <div>
-          <span class="job-title">{{ job.title }}</span>,
-          <span class="job-company">{{ job.company }}</span>
-        </div>
-        <div class="job-meta">
-          {{ job.period }}{% if job.location %} &middot; {{ job.location }}{% endif %}
-        </div>
+      <div class="row">
+        <span class="job-title">{{ job.title }}</span>
+        <span class="job-meta">{{ job.period }}</span>
+      </div>
+      <div class="row">
+        <span class="job-company">{{ job.company }}{% if job.location %} <span class="loc">&middot; {{ job.location }}</span>{% endif %}</span>
       </div>
       {% if job.bullets %}
       <ul>
@@ -142,14 +210,12 @@
     <h2>Education</h2>
     {% for e in resume.education %}
     <div class="edu">
-      <div class="job-head">
-        <div>
-          <span class="job-title">{{ e.degree }}</span>,
-          <span class="job-company">{{ e.institution }}</span>
-        </div>
-        <div class="job-meta">
-          {{ e.period }}{% if e.location %} &middot; {{ e.location }}{% endif %}
-        </div>
+      <div class="row">
+        <span class="edu-degree">{{ e.degree }}</span>
+        <span class="job-meta">{{ e.period }}</span>
+      </div>
+      <div class="row">
+        <span class="edu-inst">{{ e.institution }}{% if e.location %} <span class="loc">&middot; {{ e.location }}</span>{% endif %}</span>
       </div>
       {% if e.description %}<p class="edu-desc">{{ e.description }}</p>{% endif %}
     </div>
