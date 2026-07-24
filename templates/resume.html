@@ -104,8 +104,12 @@
   p.summary { margin: 0; color: var(--text); }
 
   /* ---- Experience ------------------------------------------------------ */
-  .job { margin-bottom: 13px; page-break-inside: avoid; }
+  /* Let a job's bullets flow across a page break so pages fill up (no big gap
+     from keeping the whole block together). Bullets stay whole and the heading
+     stays attached to its list below. */
+  .job { margin-bottom: 13px; }
   .job:last-child, .edu:last-child { margin-bottom: 0; }
+  .job-head { break-after: avoid; page-break-after: avoid; }
   .row {
     display: flex;
     justify-content: space-between;
@@ -127,7 +131,8 @@
     font-feature-settings: "tnum" 1;
   }
   ul { margin: 7px 0 0; padding: 0; list-style: none; }
-  li { position: relative; padding-left: 15px; margin-bottom: 3.5px; color: var(--text); }
+  li { position: relative; padding-left: 15px; margin-bottom: 3.5px; color: var(--text);
+       break-inside: avoid; page-break-inside: avoid; }
   li b { font-weight: 700; color: var(--ink); }
   li::before {
     content: "\2022";                 /* dot marker */
@@ -195,12 +200,14 @@
     <h2>Experience</h2>
     {% for job in resume.experience %}
     <div class="job">
-      <div class="row">
-        <span class="job-title">{{ job.title }}</span>
-        <span class="job-meta">{{ job.period }}</span>
-      </div>
-      <div class="row">
-        <span class="job-company">{{ job.company }}{% if job.location %} <span class="loc">&middot; {{ job.location }}</span>{% endif %}</span>
+      <div class="job-head">
+        <div class="row">
+          <span class="job-title">{{ job.title }}</span>
+          <span class="job-meta">{{ job.period }}</span>
+        </div>
+        <div class="row">
+          <span class="job-company">{{ job.company }}{% if job.location %} <span class="loc">&middot; {{ job.location }}</span>{% endif %}</span>
+        </div>
       </div>
       {% if job.bullets %}
       <ul>

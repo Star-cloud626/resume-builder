@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sign in — Resume Builder{% endblock %}
+{% block head %}
+<style>
+  .login-wrap { max-width: 380px; margin: 8vh auto 0; }
+  .login-card { background: #fff; border: 1px solid var(--line); border-radius: 14px;
+                padding: 28px 26px; box-shadow: 0 1px 2px rgba(16,24,40,.04); }
+  .login-card h2 { margin: 0 0 4px; font-size: 18px; color: var(--ink); }
+  .login-card p.sub { margin: 0 0 20px; color: var(--muted); font-size: 13px; }
+  .fld { margin-bottom: 14px; }
+  .login-card .btn { width: 100%; justify-content: center; padding: 11px; font-size: 14px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="login-wrap">
+  <div class="login-card">
+    <h2>Sign in</h2>
+    <p class="sub">Enter your credentials to continue.</p>
+    {% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+    <form method="post" action="{{ url_for('login_submit') }}">
+      <input type="hidden" name="next" value="{{ request.args.get('next', '') }}">
+      <div class="fld">
+        <label class="lbl" for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="username"
+               value="{{ email or '' }}" required autofocus>
+      </div>
+      <div class="fld">
+        <label class="lbl" for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn">Sign in</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

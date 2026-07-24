@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ "Edit" if user else "New" }} user — Resume Builder{% endblock %}
+{% block head %}
+<style>
+  .user-card { max-width: 480px; }
+  .fld { margin-bottom: 15px; }
+  .form-actions { display: flex; gap: 12px; margin-top: 6px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 5px 0 0; }
+</style>
+{% endblock %}
+
+{% block topright %}<a class="link" href="{{ url_for('users_list') }}">← Users</a>{% endblock %}
+
+{% block content %}
+{% set f = form or {} %}
+<div class="card user-card">
+  <h2 class="section">{{ "Edit client" if user else "New client" }}</h2>
+  {% if error %}<div class="banner error">{{ error }}</div>{% endif %}
+  <form method="post" action="{{ action }}">
+    <div class="fld">
+      <label class="lbl" for="email">Email *</label>
+      <input type="email" id="email" name="email" required
+             value="{{ f.email if f.email is defined else (user.email if user else '') }}">
+    </div>
+    <div class="fld">
+      <label class="lbl" for="password">Password {% if user %}<span style="font-weight:400;color:var(--muted)">— leave blank to keep current</span>{% else %}*{% endif %}</label>
+      <input type="password" id="password" name="password" autocomplete="new-password"
+             {% if not user %}required{% endif %}>
+    </div>
+    <div class="fld">
+      <label class="lbl" for="role">Role *</label>
+      {% set current_role = f.role if f.role is defined else (user.role if user else 'user') %}
+      <select id="role" name="role">
+        <option value="user"  {% if current_role == 'user' %}selected{% endif %}>User — generate &amp; manage own profiles</option>
+        <option value="admin" {% if current_role == 'admin' %}selected{% endif %}>Admin — full access &amp; user management</option>
+      </select>
+      <p class="hint">Users can add/edit/delete their own candidate profiles and generate. Admins can do everything.</p>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn">Save user</button>
+      <a class="btn ghost" href="{{ url_for('users_list') }}">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

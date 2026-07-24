@@ -62,6 +62,15 @@ class VertexSettings:
 
 
 @dataclass
+class AuthSettings:
+    """Session secret + the default admin seeded on first run."""
+
+    secret_key: str
+    admin_email: str
+    admin_password: str
+
+
+@dataclass
 class Profile:
     contact: Contact
     experience: list[ExperienceSkeleton] = field(default_factory=list)
@@ -90,6 +99,14 @@ def load_vertex_settings() -> VertexSettings:
         project=_env("GOOGLE_CLOUD_PROJECT"),
         location=_env("GOOGLE_CLOUD_LOCATION", "us-central1"),
         model=_env("GEMINI_MODEL", "gemini-2.5-flash"),
+    )
+
+
+def load_auth_settings() -> AuthSettings:
+    return AuthSettings(
+        secret_key=_env("FLASK_SECRET_KEY", "dev-insecure-change-me"),
+        admin_email=_env("ADMIN_EMAIL", "admin@example.com"),
+        admin_password=_env("ADMIN_PASSWORD", "admin"),
     )
 
 
