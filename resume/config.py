@@ -26,6 +26,32 @@ PROFILE_PATH = ROOT / "profile.json"
 load_dotenv(ROOT / ".env")
 
 
+def _normalize_credentials() -> None:
+    """Make GOOGLE_APPLICATION_CREDENTIALS portable across machines/OSes.
+
+    Google's auth libraries read this env var as a file path. To avoid having to
+    hand-edit an absolute path per machine:
+      * a relative path is resolved against the project root;
+      * if the configured path doesn't exist (e.g. a stale path from another OS),
+        or the var is unset, fall back to ``vertex-sa.json`` in the project root.
+    So dropping the key file next to ``app.py`` just works anywhere.
+    """
+    cred = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip().strip('"')
+    fallback = ROOT / "vertex-sa.json"
+    if cred:
+        path = Path(cred)
+        if not path.is_absolute():
+            path = ROOT / cred
+        if path.exists():
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(path)
+            return
+    if fallback.exists():
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = str(fallback)
+
+
+_normalize_credentials()
+
+
 @dataclass
 class Contact:
     full_name: str
