@@ -4,7 +4,7 @@ Given the stable :class:`Profile` and a raw job-description string, the model
 returns a structured object:
 
   * a tailored professional summary,
-  * 3-5 achievement bullets for **each** job in the skeleton (grounded in that
+  * 6-7 achievement bullets for **each** job in the skeleton (grounded in that
     job's real company / title - the model must not invent employers), and
   * a prioritised skills list relevant to the job description.
 
@@ -93,13 +93,11 @@ specific job description.
 Hard rules:
 - Use ONLY the companies, job titles and periods provided. Never invent, rename,
   merge or drop an employer. Return one entry per provided job, in the same order.
-- Write achievement-oriented bullet points per job, tiered by recency so the
-  finished resume comfortably fills two to three pages:
-    * the most recent / current role: 6-7 bullets,
-    * middle roles: 5-6 bullets,
-    * the oldest role(s): 3-4 bullets.
-  Each bullet should be substantial (roughly one to two lines) - not a terse
-  fragment. Start each with a strong past-tense verb.
+- Write achievement-oriented bullet points per job. Produce 6-7 bullets for EVERY
+  role, regardless of how recent it is - do NOT taper older roles to fewer bullets,
+  and do NOT compress content to hit any page count. The resume can run as many
+  pages as this requires. Each bullet should be substantial (roughly one to two
+  lines) - not a terse fragment. Start each with a strong past-tense verb.
 - EMPHASIS: in every bullet, wrap the 2-4 most important keywords or phrases in
   **double asterisks** to render them bold (Markdown style). Emphasise the things
   a recruiter scans for - core technologies, the headline metric, the system or
