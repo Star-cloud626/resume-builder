@@ -143,6 +143,21 @@ Hard rules:
   candidate for THIS role would credibly have. You may recommend skills beyond the
   candidate's base list when they are a natural fit for the role and seniority. Do
   not pad with unrelated skills, and never repeat a skill across groups.
+- SKILL <-> EXPERIENCE ALIGNMENT (critical - avoids the "listed but never used" red
+  flag a recruiter will call out). Work in this order:
+    1. First read the target job description and identify its KEY / headline skills
+       and technologies (the ones the role clearly centres on).
+    2. Demonstrate those key skills INSIDE the work-history bullets, used in context
+       ("built X with <skill> to ..."), spread plausibly across the roles by
+       seniority and era. Every headline technology you intend to surface must appear
+       in at least one experience bullet (or the summary) - shown being used, not
+       just named.
+    3. Only THEN build the Skills section. Do NOT list a skill that is central to the
+       target role unless it is also substantiated in the experience (a bullet or the
+       summary shows the candidate actually using it). No "orphan" headline skills.
+  Adjacent / supporting skills (the expansion beyond the JD's core) may still be
+  listed in Skills without a matching bullet - the hard rule applies to the
+  role-critical technologies a recruiter would probe, not to every minor tool.
 - Education: for each education entry provided, write a 2-sentence description that
   ties the degree to the target role - relevant coursework, focus areas, projects
   or foundational knowledge that support this specific job. Keep the institution,
