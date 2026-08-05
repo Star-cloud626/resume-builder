@@ -50,6 +50,14 @@ def render_pdf(profile: Profile, resume: TailoredResume) -> bytes:
     return _document(profile, resume).write_pdf()
 
 
+def html_to_pdf(html: str) -> bytes:
+    """Render an already-generated preview HTML string to PDF (no AI call).
+
+    ``base_url`` is the project root so the bundled ``assets/fonts`` resolve.
+    """
+    return HTML(string=html, base_url=str(ROOT)).write_pdf()
+
+
 def page_count(profile: Profile, resume: TailoredResume) -> int:
     return len(_document(profile, resume).pages)
 

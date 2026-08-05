@@ -163,19 +163,15 @@
       <div style="margin-top:18px;">
         <div class="out-group">
           <span class="out-label">Resume</span>
-          <button type="submit" formaction="{{ url_for('generate_route') }}" name="format" value="pdf"
-            class="btn" {% if not can_generate %}disabled{% endif %}>Download PDF</button>
-          <button type="button" class="btn secondary" data-preview="{{ url_for('generate_route') }}"
-            data-title="Resume" {% if not can_generate %}disabled{% endif %}>Preview</button>
-          <span class="out-hint">6–7 bullets per role, keywords bolded</span>
+          <button type="button" class="btn" data-preview="{{ url_for('generate_route') }}"
+            data-title="Resume" data-download="true" {% if not can_generate %}disabled{% endif %}>Preview</button>
+          <span class="out-hint">6–7 bullets per role · download from the preview</span>
         </div>
 
         <div class="out-group">
           <span class="out-label">Cover letter</span>
-          <button type="submit" formaction="{{ url_for('cover_letter_route') }}" name="format" value="pdf"
-            class="btn" {% if not can_generate %}disabled{% endif %}>Download PDF</button>
-          <button type="button" class="btn secondary" data-preview="{{ url_for('cover_letter_route') }}"
-            data-title="Cover letter" {% if not can_generate %}disabled{% endif %}>Preview</button>
+          <button type="button" class="btn" data-preview="{{ url_for('cover_letter_route') }}"
+            data-title="Cover letter" data-download="true" {% if not can_generate %}disabled{% endif %}>Preview</button>
         </div>
       </div>
 
@@ -187,7 +183,7 @@
       <div class="out-group" style="border-top:0;">
         <span class="out-label">Answers</span>
         <button type="button" class="btn answers-btn" data-preview="{{ url_for('answers_route') }}"
-          data-title="Answers" {% if not can_generate %}disabled{% endif %}>Preview</button>
+          data-title="Answers" data-download="false" {% if not can_generate %}disabled{% endif %}>Preview</button>
         <span class="out-hint" id="answersHint">Add a question above to enable</span>
       </div>
 
@@ -205,6 +201,15 @@
     <div class="modal-head">
       <h3 id="modalTitle">Preview</h3>
       <div class="modal-tools">
+        <button type="button" class="icon-btn" id="downloadBtn" title="Download as PDF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span id="downloadLabel">Download PDF</span>
+        </button>
         <button type="button" class="icon-btn" id="copyBtn" title="Copy text to clipboard">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -232,15 +237,21 @@
   const modalTitle = document.getElementById('modalTitle');
   const copyBtn = document.getElementById('copyBtn');
   const copyLabel = document.getElementById('copyLabel');
+  const downloadBtn = document.getElementById('downloadBtn');
+  const downloadLabel = document.getElementById('downloadLabel');
 
-  function openModal(title) {
+  let currentToken = null;   // token for downloading the current preview as PDF
+
+  function openModal(title, downloadable) {
     modalTitle.textContent = title + ' preview';
     resetCopyBtn();
+    downloadBtn.style.display = downloadable ? '' : 'none';
     modal.classList.add('on');
   }
   function closeModal() {
     modal.classList.remove('on');
     iframe.srcdoc = '';
+    currentToken = null;
   }
   function resetCopyBtn() {
     copyBtn.classList.remove('copied');
@@ -258,14 +269,43 @@
       if (!res.ok) {
         alert(text || 'Generation failed. Check the inputs and Vertex settings.');
       } else {
+        currentToken = res.headers.get('X-Preview-Token');
         iframe.srcdoc = text;
-        openModal(btn.dataset.title || 'Document');
+        openModal(btn.dataset.title || 'Document', btn.dataset.download !== 'false');
       }
     } catch (e) {
       alert('Request failed: ' + e);
     } finally {
       spinner.classList.remove('on');
       btn.disabled = false;
+    }
+  }
+
+  // Download the CURRENT preview as a PDF — reuses the cached result, no AI call.
+  async function downloadPdf() {
+    if (!currentToken) return;
+    downloadBtn.disabled = true;
+    const orig = downloadLabel.textContent;
+    downloadLabel.textContent = 'Preparing…';
+    try {
+      const res = await fetch('/download/' + currentToken);
+      if (!res.ok) {
+        alert('Could not build the PDF — re-open the preview and try again.');
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get('Content-Disposition') || '';
+      const m = cd.match(/filename="?([^"]+)"?/);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = m ? m[1] : 'document.pdf';
+      document.body.appendChild(a); a.click();
+      URL.revokeObjectURL(a.href); a.remove();
+    } catch (e) {
+      alert('Download failed: ' + e);
+    } finally {
+      downloadBtn.disabled = false;
+      downloadLabel.textContent = orig;
     }
   }
 
@@ -305,6 +345,7 @@
   syncAnswers();
 
   copyBtn.addEventListener('click', copyPreviewText);
+  downloadBtn.addEventListener('click', downloadPdf);
   document.getElementById('modalClose').addEventListener('click', closeModal);
   modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
   document.addEventListener('keydown', (e) => {

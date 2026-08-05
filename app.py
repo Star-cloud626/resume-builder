@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import io
 import re
+import uuid
+from collections import OrderedDict
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -25,6 +27,7 @@ from pathlib import Path
 from flask import (
     Flask,
     abort,
+    make_response,
     redirect,
     render_template,
     request,
@@ -44,12 +47,10 @@ from resume.generator import (
     parse_questions,
 )
 from resume.pdf import (
+    html_to_pdf,
     render_answers_html,
-    render_answers_pdf,
     render_cover_letter_html,
-    render_cover_letter_pdf,
     render_html,
-    render_pdf,
 )
 
 app = Flask(__name__)
@@ -121,13 +122,42 @@ def _slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-") or "resume"
 
 
-def _pdf_response(pdf_bytes: bytes, name: str, kind: str):
+# --- Preview cache ----------------------------------------------------------
+# Each preview stashes its SERVER-rendered HTML under a random token so the modal
+# can download it as a PDF later without calling the AI again. In-memory + capped;
+# server-generated HTML only (never client-supplied), so no HTML-injection risk.
+
+_PREVIEW_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+_PREVIEW_CACHE_MAX = 60
+
+
+def _stash_preview(html: str, download_name: str) -> str:
+    token = uuid.uuid4().hex
+    _PREVIEW_CACHE[token] = {"html": html, "name": download_name}
+    while len(_PREVIEW_CACHE) > _PREVIEW_CACHE_MAX:
+        _PREVIEW_CACHE.popitem(last=False)
+    return token
+
+
+def _preview_response(html: str, name: str, kind: str):
+    """Return the preview HTML and hand back a download token in a header."""
+    resp = make_response(html)
     filename = f"{_slug(name)}-{kind}-{datetime.now():%Y%m%d}.pdf"
+    resp.headers["X-Preview-Token"] = _stash_preview(html, filename)
+    return resp
+
+
+@app.get("/download/<token>")
+@login_required
+def download_preview(token: str):
+    item = _PREVIEW_CACHE.get(token)
+    if not item:
+        abort(404)  # preview expired (e.g. server restarted) - re-open it
     return send_file(
-        io.BytesIO(pdf_bytes),
+        io.BytesIO(html_to_pdf(item["html"])),
         mimetype="application/pdf",
         as_attachment=True,
-        download_name=filename,
+        download_name=item["name"],
     )
 
 
@@ -212,20 +242,9 @@ def _load_active_profile(user: dict):
     return profile
 
 
-def _error_page(user: dict, exc: GenerationError):
-    vertex = load_vertex_settings()
-    active_id = _resolve_person_id(request.form.get("person_id"), user)
-    return render_template(
-        "index.html",
-        people=db.list_people(None if is_admin(user) else user["id"]),
-        active_id=active_id,
-        profile=db.get_profile(active_id) if active_id else None,
-        vertex_ready=bool(vertex.project),
-        can_generate=bool(vertex.project and active_id),
-        error=str(exc),
-        job_description=request.form.get("job_description", ""),
-        questions=request.form.get("questions", ""),
-    ), 400
+def _text_error(exc: GenerationError):
+    """Plain-text 400 so the browser fetch shows the message inline."""
+    return str(exc), 400, {"Content-Type": "text/plain; charset=utf-8"}
 
 
 @app.post("/generate")
@@ -234,16 +253,12 @@ def generate_route():
     user = current_user()
     vertex = load_vertex_settings()
     job_description = request.form.get("job_description", "")
-    want = request.form.get("format", "pdf")
     try:
         profile = _load_active_profile(user)
         resume = generate(profile, job_description, vertex)
     except GenerationError as exc:
-        return _error_page(user, exc)
-
-    if want == "preview":
-        return render_html(profile, resume)
-    return _pdf_response(render_pdf(profile, resume), profile.contact.full_name, "resume")
+        return _text_error(exc)
+    return _preview_response(render_html(profile, resume), profile.contact.full_name, "resume")
 
 
 @app.post("/cover-letter")
@@ -252,20 +267,14 @@ def cover_letter_route():
     user = current_user()
     vertex = load_vertex_settings()
     job_description = request.form.get("job_description", "")
-    want = request.form.get("format", "pdf")
     letter_date = f"{datetime.now():%d %B %Y}"
     try:
         profile = _load_active_profile(user)
         body = generate_cover_letter(profile, job_description, vertex)
     except GenerationError as exc:
-        if want == "preview":
-            return str(exc), 400, {"Content-Type": "text/plain; charset=utf-8"}
-        return _error_page(user, exc)
-
-    if want == "preview":
-        return render_cover_letter_html(profile, body, letter_date)
-    return _pdf_response(
-        render_cover_letter_pdf(profile, body, letter_date),
+        return _text_error(exc)
+    return _preview_response(
+        render_cover_letter_html(profile, body, letter_date),
         profile.contact.full_name,
         "cover-letter",
     )
@@ -278,20 +287,14 @@ def answers_route():
     vertex = load_vertex_settings()
     job_description = request.form.get("job_description", "")
     questions = parse_questions(request.form.get("questions", ""))
-    want = request.form.get("format", "pdf")
     answer_date = f"{datetime.now():%d %B %Y}"
     try:
         profile = _load_active_profile(user)
         pairs = generate_answers(profile, job_description, questions, vertex)
     except GenerationError as exc:
-        if want == "preview":
-            return str(exc), 400, {"Content-Type": "text/plain; charset=utf-8"}
-        return _error_page(user, exc)
-
-    if want == "preview":
-        return render_answers_html(profile, pairs, answer_date)
-    return _pdf_response(
-        render_answers_pdf(profile, pairs, answer_date),
+        return _text_error(exc)
+    return _preview_response(
+        render_answers_html(profile, pairs, answer_date),
         profile.contact.full_name,
         "answers",
     )
