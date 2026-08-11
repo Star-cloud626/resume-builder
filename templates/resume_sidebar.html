@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>{{ contact.full_name }} - Resume</title>
+<style>
+  @font-face { font-family:"Inter"; font-weight:400; src:url("assets/fonts/Inter-Regular.ttf")  format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:500; src:url("assets/fonts/Inter-Medium.ttf")   format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:600; src:url("assets/fonts/Inter-SemiBold.ttf") format("truetype"); }
+  @font-face { font-family:"Inter"; font-weight:700; src:url("assets/fonts/Inter-Bold.ttf")     format("truetype"); }
+  @font-face { font-family:"Source Serif 4"; font-weight:700; src:url("assets/fonts/SourceSerif4-Bold.ttf") format("truetype"); }
+
+  :root {
+    --serif:  "Source Serif 4", Georgia, serif;
+    --sans:   "Inter", "Liberation Sans", Arial, sans-serif;
+    --ink:    #1a1c20;
+    --head:   #21262e;
+    --text:   #34393f;
+    --muted:  #6b7280;
+    --faint:  #e4e7ec;
+    --accent: #2b4a6b;
+    --tint:   #eef2f7;   /* sidebar background          */
+    --side-w: 64mm;      /* sidebar width               */
+    --gap:    11mm;      /* gap between sidebar and main */
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--sans); color: var(--text);
+    font-size: 10pt; line-height: 1.44; margin: 0;
+    font-feature-settings: "kern" 1, "liga" 1;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+
+  /* ---- Sidebar ---- */
+  .sidebar { color: var(--text); }
+  .side-bg { display: none; }   /* print-only tint layer (see @media print) */
+  .name {
+    font-family: var(--serif); font-weight: 700; font-size: 19pt; line-height: 1.05;
+    color: var(--ink); letter-spacing: -0.3px; margin: 0;
+  }
+  .headline {
+    font-size: 8pt; text-transform: uppercase; letter-spacing: 1.8px;
+    font-weight: 600; color: var(--accent); margin: 6px 0 0;
+  }
+  .side-sec { margin-top: 17px; }
+  .side-h {
+    font-size: 8pt; text-transform: uppercase; letter-spacing: 1.8px; font-weight: 700;
+    color: var(--accent); margin: 0 0 7px; padding-bottom: 4px; border-bottom: 1px solid #d5dde7;
+  }
+  .contact-item { font-size: 8.5pt; color: var(--text); margin-bottom: 5px; overflow-wrap: anywhere; }
+  .skill-group { margin-bottom: 8px; }
+  .skill-cat { font-size: 7.75pt; text-transform: uppercase; letter-spacing: .8px;
+               font-weight: 700; color: var(--muted); margin-bottom: 2px; }
+  .skill-list { font-size: 8.75pt; color: var(--text); }
+  .edu-item { margin-bottom: 9px; }
+  .edu-degree { font-weight: 600; color: var(--head); font-size: 9pt; }
+  .edu-inst { color: var(--accent); font-weight: 500; font-size: 8.5pt; margin-top: 1px; }
+  .edu-meta { color: var(--muted); font-size: 8pt; margin-top: 1px; }
+  .edu-desc { color: var(--text); font-size: 8.25pt; margin-top: 3px; }
+
+  /* ---- Main column ---- */
+  .main h2 {
+    font-family: var(--sans); font-size: 9pt; text-transform: uppercase; letter-spacing: 2.2px;
+    font-weight: 700; color: var(--accent); border-bottom: 1px solid var(--faint);
+    padding-bottom: 4px; margin: 0 0 9px;
+  }
+  .main section { margin-bottom: 16px; }
+  .main section:last-child { margin-bottom: 0; }
+  p.summary { margin: 0; }
+  .job { margin-bottom: 12px; }
+  .job:last-child { margin-bottom: 0; }
+  .job-head { break-after: avoid; page-break-after: avoid; }
+  .job-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; line-height: 1.25; }
+  .job-title { font-weight: 600; color: var(--head); font-size: 10.5pt; flex: 1 0 auto; }
+  .job-meta  { font-size: 8.5pt; color: var(--muted); white-space: nowrap; flex: 0 0 auto;
+               font-feature-settings: "tnum" 1; }
+  .job-company { color: var(--accent); font-weight: 500; margin-top: 1px; }
+  .job-company .loc { color: var(--muted); font-weight: 400; }
+  ul { margin: 6px 0 0; padding: 0; list-style: none; }
+  li { position: relative; padding-left: 14px; margin-bottom: 3px; color: var(--text);
+       break-inside: avoid; page-break-inside: avoid; }
+  li b { font-weight: 700; color: var(--ink); }
+  li::before { content: "\2022"; position: absolute; left: 2px; top: -0.5px; color: var(--accent); font-size: 8.5pt; }
+
+  /* ================= PRINT (WeasyPrint) ================= */
+  @media print {
+    @page {
+      size: A4;
+      /* Left margin 0 so the left column's left:0 is the true page edge.
+         top/bottom/right margins give consistent whitespace on every page. */
+      margin: 15mm 15mm 15mm 0;
+      @bottom-right { content: "Page " counter(page) " of " counter(pages);
+                      font-family: var(--sans); font-size: 7.5pt; color: #9aa1aa; }
+    }
+    /* Tint layer: position:fixed so it repeats the column background on EVERY page
+       (bled past the top/bottom margins). It holds no text, so nothing repeats. */
+    .side-bg {
+      display: block;
+      position: fixed;
+      top: -15mm; bottom: -15mm; left: 0;
+      width: var(--side-w);
+      background: var(--tint);
+    }
+    /* Sidebar CONTENT: position:absolute so it renders only on page 1 (it does not
+       repeat like a fixed element would). Sits on top of the tint layer. */
+    .sidebar {
+      position: absolute;
+      top: 0; left: 0;
+      width: var(--side-w);
+      padding: 0 8mm;
+    }
+    /* Main flows in the content box (left edge = page edge since left margin is 0);
+       the margin-left keeps it clear of the tint column on every page. */
+    .main { margin-left: calc(var(--side-w) + var(--gap)); padding: 0; }
+  }
+
+  /* ================= SCREEN (browser preview) ================= */
+  @media screen {
+    html { background: #eef1f5; }
+    .page {
+      display: flex; max-width: 210mm; min-height: 297mm; margin: 22px auto;
+      background: #fff; box-shadow: 0 6px 26px rgba(16,24,40,.14); border-radius: 4px; overflow: hidden;
+    }
+    .sidebar { width: var(--side-w); flex: 0 0 var(--side-w); padding: 15mm 8mm; background: var(--tint); }
+    .main { flex: 1; padding: 15mm 15mm; }
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="side-bg"></div>
+    <aside class="sidebar">
+      <p class="name">{{ contact.full_name }}</p>
+      {% if contact.headline %}<p class="headline">{{ contact.headline }}</p>{% endif %}
+
+      <div class="side-sec">
+        <div class="side-h">Contact</div>
+        {% if contact.location %}<div class="contact-item">{{ contact.location }}</div>{% endif %}
+        {% if contact.email %}<div class="contact-item">{{ contact.email }}</div>{% endif %}
+        {% if contact.phone %}<div class="contact-item">{{ contact.phone }}</div>{% endif %}
+        {% if contact.linkedin %}<div class="contact-item">{{ contact.linkedin }}</div>{% endif %}
+      </div>
+
+      {% if resume.skill_groups %}
+      <div class="side-sec">
+        <div class="side-h">Skills</div>
+        {% for group in resume.skill_groups %}
+        <div class="skill-group">
+          <div class="skill-cat">{{ group.category }}</div>
+          <div class="skill-list">{{ group.skills | join(', ') }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if resume.education %}
+      <div class="side-sec">
+        <div class="side-h">Education</div>
+        {% for e in resume.education %}
+        <div class="edu-item">
+          <div class="edu-degree">{{ e.degree }}</div>
+          <div class="edu-inst">{{ e.institution }}</div>
+          <div class="edu-meta">{{ e.period }}{% if e.location %} &middot; {{ e.location }}{% endif %}</div>
+          {% if e.description %}<div class="edu-desc">{{ e.description | bold }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </aside>
+
+    <main class="main">
+      {% if resume.summary %}
+      <section>
+        <h2>Summary</h2>
+        <p class="summary">{{ resume.summary | bold }}</p>
+      </section>
+      {% endif %}
+
+      {% if resume.experience %}
+      <section>
+        <h2>Experience</h2>
+        {% for job in resume.experience %}
+        <div class="job">
+          <div class="job-head">
+            <div class="job-row">
+              <span class="job-title">{{ job.title }}</span>
+              <span class="job-meta">{{ job.period }}</span>
+            </div>
+            <div class="job-company">{{ job.company }}{% if job.location %} <span class="loc">&middot; {{ job.location }}</span>{% endif %}</div>
+          </div>
+          {% if job.bullets %}
+          <ul>{% for bullet in job.bullets %}<li>{{ bullet | bold }}</li>{% endfor %}</ul>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </section>
+      {% endif %}
+    </main>
+  </div>
+</body>
+</html>

@@ -253,12 +253,13 @@ def generate_route():
     user = current_user()
     vertex = load_vertex_settings()
     job_description = request.form.get("job_description", "")
+    style = request.form.get("resume_style", "editorial")
     try:
         profile = _load_active_profile(user)
         resume = generate(profile, job_description, vertex)
     except GenerationError as exc:
         return _text_error(exc)
-    return _preview_response(render_html(profile, resume), profile.contact.full_name, "resume")
+    return _preview_response(render_html(profile, resume, style), profile.contact.full_name, "resume")
 
 
 @app.post("/cover-letter")

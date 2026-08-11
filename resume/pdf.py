@@ -36,13 +36,25 @@ _env = Environment(
 _env.filters["bold"] = md_bold
 
 
-def render_html(profile: Profile, resume: TailoredResume) -> str:
-    template = _env.get_template("resume.html")
+# Selectable resume styles: key -> template file. "editorial" is the original.
+RESUME_STYLES = {
+    "editorial": "resume.html",
+    "sidebar": "resume_sidebar.html",
+}
+DEFAULT_STYLE = "editorial"
+
+
+def resume_template(style: str) -> str:
+    return RESUME_STYLES.get(style, RESUME_STYLES[DEFAULT_STYLE])
+
+
+def render_html(profile: Profile, resume: TailoredResume, style: str = DEFAULT_STYLE) -> str:
+    template = _env.get_template(resume_template(style))
     return template.render(contact=profile.contact, resume=resume)
 
 
-def _document(profile: Profile, resume: TailoredResume):
-    html = render_html(profile, resume)
+def _document(profile: Profile, resume: TailoredResume, style: str = DEFAULT_STYLE):
+    html = render_html(profile, resume, style)
     return HTML(string=html, base_url=str(ROOT)).render()
 
 

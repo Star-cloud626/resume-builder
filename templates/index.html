@@ -163,6 +163,11 @@
       <div style="margin-top:18px;">
         <div class="out-group">
           <span class="out-label">Resume</span>
+          <select name="resume_style" id="resumeStyle" title="Resume style"
+            style="width:auto;min-width:150px" {% if not can_generate %}disabled{% endif %}>
+            <option value="editorial">Editorial (single column)</option>
+            <option value="sidebar">Two-column sidebar</option>
+          </select>
           <button type="button" class="btn" data-preview="{{ url_for('generate_route') }}"
             data-title="Resume" data-download="true" {% if not can_generate %}disabled{% endif %}>Preview</button>
           <span class="out-hint">6–7 bullets per role · download from the preview</span>
