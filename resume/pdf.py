@@ -5,6 +5,9 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+import os
+
+os.add_dll_directory(r"C:\msys64\ucrt64\bin")
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup, escape

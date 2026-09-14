@@ -110,6 +110,7 @@
     <div class="nav">
       {% block topright %}{% endblock %}
       {% if current_user.role == 'admin' %}
+        <a class="link" href="{{ url_for('outreach_page') }}">Outreach</a>
         <a class="link" href="{{ url_for('users_list') }}">Users</a>
       {% endif %}
       <span class="who">

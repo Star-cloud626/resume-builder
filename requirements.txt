@@ -3,3 +3,5 @@ python-dotenv>=1.0
 google-genai>=1.0
 weasyprint>=60
 pydantic>=2.0
+requests>=2.31
+google-auth>=2.30

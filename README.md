@@ -64,20 +64,97 @@ Enable the Vertex AI API on your GCP project once:
    - **Preview** — renders inline in the browser.
    - **Download PDF** — generates and downloads the PDF.
 
+## Outreach (admin only)
+
+The **Outreach** page emails a list of people from a Google Sheet — one message
+per person, sent one at a time from your own mailbox, with duplicate checking
+before anything goes out.
+
+### One-time setup
+
+1. **Mail account.** Add the `SMTP_*` block from `.env.example` to your `.env`.
+   Gmail requires an **app password** (Google Account → Security → 2-Step
+   Verification → App passwords); a normal account password is rejected.
+   Behind a VPN that fakes DNS answers for mail servers (Astrill does), sending
+   times out. Set `SMTP_RESOLVER="doh"`: the app then looks the server up over
+   Google DNS-over-HTTPS and connects to that address, still verifying the TLS
+   certificate against `smtp.gmail.com`.
+2. **Sheet access.** The page reads and writes the sheet with the same service
+   account as Vertex. Enable the Sheets API once
+   (`gcloud services enable sheets.googleapis.com`) and share the spreadsheet
+   with the key file's `client_email` as an **Editor**.
+
+### The sheet
+
+Row 1 is the header row. Columns are found by name — a header containing
+`email`, one containing `linkedin`, and one containing `status` — or you can type
+the column letters on the page instead. If there is no status column, the next
+free column is used.
+
+| | A | B | C | D |
+| --- | --- | --- | --- | --- |
+| **1** | Name | Email | LinkedIn | Status |
+| **2** | Ada | ada@example.com | linkedin.com/in/ada | |
+
+### A run
+
+Enter the sheet URL, the row range (e.g. 100 to 200), a subject and a message,
+then:
+
+- **Check the range** — reads the sheet and shows what *would* happen. Sends
+  nothing, writes nothing.
+- **Start sending** — works down the range one row at a time. Progress updates
+  live, and **Stop** halts after the current message; rows it never reached keep
+  an empty status cell.
+
+Before each send the address is checked, and the row is **skipped** if it is:
+
+- blank or unreadable → marked `invalid`;
+- already seen earlier in the same range → marked `duplicated`;
+- already emailed successfully in an earlier run → marked `duplicated`.
+
+Every outcome is written back into the sheet's status column and recorded in
+`resume.db`, which is what the "earlier run" check reads. Skipped rows are
+stamped in a single batched call, so a range full of duplicates doesn't burn
+through the Sheets write quota.
+
+Each message is an ordinary email from the configured account: one real `To:`,
+plain text, no BCC list. The gap between sends (default 8s) is there to stay
+within provider rate limits — Gmail in particular caps daily sends, and a large
+range should be split across days.
+
+### Testing it without sending anything
+
+`tests/test_outreach.py` runs the whole flow against a fake spreadsheet, a fake
+mail server and a throwaway database — no Google account, no mailbox, no network:
+
+```bash
+.venv/bin/python tests/test_outreach.py      # .venv/Scripts/python.exe on Windows
+```
+
+For a live rehearsal, make a scratch sheet of addresses you own (Gmail treats
+`you+a@gmail.com` and `you+b@gmail.com` as separate addresses that all arrive in
+your own inbox), include a deliberate repeat, and run the range with **Check the
+range** first.
+
 ## Project layout
 
 ```
-app.py                 Flask routes (home, generation, person CRUD)
+app.py                 Flask routes (home, generation, person CRUD, outreach)
 resume/db.py           SQLite storage for people (CRUD + first-run seed)
 resume/config.py       Loads Vertex settings from .env; profile dataclasses
 resume/generator.py    Calls Vertex AI (Gemini): resume, cover letter, answers
 resume/pdf.py          Jinja2 + WeasyPrint -> PDF (incl. **bold** keyword filter)
+resume/sheets.py       Google Sheets read/write over the service-account key
+resume/outreach.py     Duplicate checking + one-at-a-time SMTP sending
 templates/base.html    Shared web-UI shell + styles
 templates/index.html   Home: candidate picker + generation
 templates/person_form.html  Add / edit a candidate
 templates/resume.html       Resume layout (bundled Inter + Source Serif fonts)
 templates/cover_letter.html Cover-letter layout
 templates/answers.html      Application-answers layout
+templates/outreach.html     Outreach: sheet range, message, live progress
+tests/test_outreach.py      Offline test of the outreach flow (fakes, no network)
 assets/fonts/          Bundled Inter + Source Serif 4 (embedded into the PDFs)
 ```
 
@@ -91,4 +168,8 @@ assets/fonts/          Bundled Inter + Source Serif 4 (embedded into the PDFs)
   identically everywhere. Both are SIL Open Font License.
 - PDF rendering uses WeasyPrint, which needs pango/cairo system libraries
   (already present on most Linux desktops).
-- `resume.db` is git-ignored (it holds real candidate data).
+- `resume.db` is git-ignored (it holds real candidate data, and now the outreach
+  send log).
+- Outreach is **admin-only**: every account would send from the single mailbox in
+  `.env`, so it isn't exposed to client accounts. The duplicate check spans all
+  users for the same reason.

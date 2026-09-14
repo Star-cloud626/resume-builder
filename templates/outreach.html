@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block title %}Outreach — Resume Builder{% endblock %}
+{% block head %}
+<style>
+  .grid { display: grid; gap: 14px; }
+  .grid.cols-2 { grid-template-columns: 1fr 1fr; }
+  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .field { min-width: 0; }
+  .hint { font-size: 11.5px; color: var(--muted); margin: 5px 0 0; }
+  .row-actions { display: flex; align-items: center; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+
+  table.rows { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.rows th {
+    text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .9px;
+    color: var(--muted); padding: 7px 10px; border-bottom: 1px solid var(--line);
+  }
+  table.rows td { padding: 7px 10px; border-bottom: 1px solid #f1f3f6; vertical-align: top; }
+  table.rows td.num { color: var(--muted); width: 56px; }
+  table.rows td.detail { color: var(--muted); }
+  .scroll { max-height: 340px; overflow: auto; margin: 0 -6px; }
+
+  .tag {
+    display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .5px;
+    text-transform: uppercase; padding: 2px 7px; border-radius: 999px; white-space: nowrap;
+  }
+  .tag.pending    { background: #eef1f5; color: #5b6675; }
+  .tag.sent       { background: #ecfdf3; color: #067647; }
+  .tag.duplicated { background: #fffaeb; color: #93700a; }
+  .tag.invalid    { background: #eef1f5; color: #5b6675; }
+  .tag.failed     { background: #fef3f2; color: #b42318; }
+  .tag.skipped    { background: #eef1f5; color: #5b6675; }
+
+  .counts { display: flex; gap: 18px; flex-wrap: wrap; margin: 0 0 14px; }
+  .counts div { font-size: 12px; color: var(--muted); }
+  .counts b { display: block; font-size: 19px; color: var(--ink); font-weight: 700; }
+
+  .bar { height: 6px; background: #eef1f5; border-radius: 999px; overflow: hidden; margin-bottom: 14px; }
+  .bar span { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+
+  @media (max-width: 760px) {
+    .grid.cols-2, .grid.cols-4 { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block topright %}<a class="link" href="{{ url_for('index') }}">Generator</a>{% endblock %}
+
+{% block content %}
+
+<div class="card">
+  <h2 class="section">Before you start</h2>
+  {% if not smtp.configured %}
+    <div class="banner warn">
+      Outgoing mail isn't set up. Add <code>SMTP_HOST</code>, <code>SMTP_USER</code> and
+      <code>SMTP_PASSWORD</code> to <code>.env</code>, then restart the app.
+      Gmail needs an <b>app password</b>, not your account password.
+    </div>
+  {% else %}
+    <div class="banner ok">
+      Sending as <b>{{ smtp.sender_name }} &lt;{{ smtp.sender }}&gt;</b>
+      via {{ smtp.host }}:{{ smtp.port }}.
+    </div>
+  {% endif %}
+  <p class="hint" style="margin-top:0">
+    The sheet must be shared (Editor) with the service account
+    {% if service_account %}<code>{{ service_account }}</code>{% else %}<i>no key file found</i>{% endif %},
+    and the Google Sheets API must be enabled on the same project.
+    Row 1 is read as the header row; statuses are written back into the status column.
+  </p>
+  <div class="row-actions">
+    <button class="btn secondary sm" id="test-smtp" {% if not smtp.configured %}disabled{% endif %}>
+      Test mail connection
+    </button>
+    <span id="test-result" class="hint" style="margin:0"></span>
+  </div>
+</div>
+
+<div class="card">
+  <h2 class="section">The list</h2>
+  <form id="outreach-form" autocomplete="off">
+    <div class="grid">
+      <div class="field">
+        <label class="lbl" for="sheet_url">Google Sheet URL</label>
+        <input type="text" id="sheet_url" name="sheet_url" required
+               placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=0">
+      </div>
+    </div>
+
+    <div class="grid cols-4" style="margin-top:14px">
+      <div class="field">
+        <label class="lbl" for="tab">Tab</label>
+        <input type="text" id="tab" name="tab" placeholder="first tab">
+      </div>
+      <div class="field">
+        <label class="lbl" for="start_row">From row</label>
+        <input type="text" id="start_row" name="start_row" value="2" required>
+      </div>
+      <div class="field">
+        <label class="lbl" for="end_row">To row</label>
+        <input type="text" id="end_row" name="end_row" value="2" required>
+      </div>
+      <div class="field">
+        <label class="lbl" for="delay">Seconds between sends</label>
+        <input type="text" id="delay" name="delay" value="{{ '%g'|format(default_delay) }}">
+      </div>
+    </div>
+    <p class="hint">Inclusive, and capped at {{ max_rows }} rows per run.</p>
+
+    <div class="grid cols-4" style="margin-top:14px">
+      <div class="field">
+        <label class="lbl" for="email_column">Email column</label>
+        <input type="text" id="email_column" name="email_column" placeholder="auto">
+      </div>
+      <div class="field">
+        <label class="lbl" for="linkedin_column">LinkedIn column</label>
+        <input type="text" id="linkedin_column" name="linkedin_column" placeholder="auto">
+      </div>
+      <div class="field">
+        <label class="lbl" for="status_column">Status column</label>
+        <input type="text" id="status_column" name="status_column" placeholder="auto">
+      </div>
+    </div>
+    <p class="hint">
+      Left blank, columns are found from the header row
+      (<code>email</code>, <code>linkedin</code>, <code>status</code>). Otherwise type a letter, e.g. <code>C</code>.
+    </p>
+
+    <div class="grid" style="margin-top:18px">
+      <div class="field">
+        <label class="lbl" for="subject">Subject</label>
+        <input type="text" id="subject" name="subject" required>
+      </div>
+      <div class="field">
+        <label class="lbl" for="body">Message</label>
+        <textarea id="body" name="body" rows="10" required></textarea>
+        <p class="hint">Sent as plain text, one message per person, to one recipient each.</p>
+      </div>
+    </div>
+
+    <div class="row-actions">
+      <button type="button" class="btn secondary" id="preview-btn">Check the range</button>
+      <button type="button" class="btn" id="send-btn" {% if not smtp.configured %}disabled{% endif %}>
+        Start sending
+      </button>
+      <button type="button" class="btn danger" id="stop-btn" hidden>Stop</button>
+      <div class="spacer"></div>
+      <span class="hint" id="form-status" style="margin:0"></span>
+    </div>
+  </form>
+</div>
+
+<div class="card" id="result-card" hidden>
+  <h2 class="section" id="result-title">Result</h2>
+  <div id="result-banner"></div>
+  <div class="bar"><span id="progress"></span></div>
+  <div class="counts" id="counts"></div>
+  <div class="scroll">
+    <table class="rows">
+      <thead>
+        <tr><th>Row</th><th>Email</th><th>Status</th><th>Note</th></tr>
+      </thead>
+      <tbody id="result-rows"></tbody>
+    </table>
+  </div>
+</div>
+
+{% if history %}
+<div class="card">
+  <h2 class="section">Recent sends</h2>
+  <div class="scroll">
+    <table class="rows">
+      <thead>
+        <tr><th>When</th><th>Email</th><th>Status</th><th>Subject</th></tr>
+      </thead>
+      <tbody>
+        {% for h in history %}
+        <tr>
+          <td class="num" style="width:140px">{{ h.sent_at }}</td>
+          <td>{{ h.email }}</td>
+          <td><span class="tag {{ h.status }}">{{ h.status }}</span></td>
+          <td class="detail">{{ h.subject }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('outreach-form');
+  const previewBtn = document.getElementById('preview-btn');
+  const sendBtn = document.getElementById('send-btn');
+  const stopBtn = document.getElementById('stop-btn');
+  const formStatus = document.getElementById('form-status');
+  const card = document.getElementById('result-card');
+  const title = document.getElementById('result-title');
+  const banner = document.getElementById('result-banner');
+  const progress = document.getElementById('progress');
+  const countsEl = document.getElementById('counts');
+  const rowsEl = document.getElementById('result-rows');
+
+  let timer = null;
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function say(message, kind) {
+    banner.innerHTML = message ? `<div class="banner ${kind || 'warn'}">${esc(message)}</div>` : '';
+  }
+
+  function busy(on, label) {
+    previewBtn.disabled = on;
+    sendBtn.disabled = on || sendBtn.dataset.locked === '1';
+    formStatus.textContent = on ? (label || 'Working…') : '';
+  }
+
+  function drawCounts(counts, order) {
+    countsEl.innerHTML = order
+      .filter((k) => counts[k] !== undefined)
+      .map((k) => `<div><b>${counts[k]}</b>${k}</div>`)
+      .join('');
+  }
+
+  function drawRows(rows) {
+    rowsEl.innerHTML = rows.map((r) => `
+      <tr>
+        <td class="num">${r.row}</td>
+        <td>${esc(r.email || '—')}</td>
+        <td><span class="tag ${esc(r.status)}">${esc(r.status)}</span></td>
+        <td class="detail">${esc(r.detail)}</td>
+      </tr>`).join('');
+  }
+
+  async function post(url) {
+    const resp = await fetch(url, { method: 'POST', body: new FormData(form) });
+    const data = await resp.json().catch(() => ({ error: 'Server returned an unreadable response.' }));
+    if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
+    return data;
+  }
+
+  // --- Check the range: reads the sheet, sends nothing ---
+  previewBtn.addEventListener('click', async () => {
+    busy(true, 'Reading the sheet…');
+    try {
+      const data = await post('{{ url_for("outreach_preview") }}');
+      card.hidden = false;
+      title.textContent = 'Range check — nothing sent';
+      const c = data.counts;
+      say(`Tab “${data.tab}” · email in ${data.email_column} · status written to ${data.status_column}. ` +
+          `${c.pending} would be emailed.`, 'ok');
+      drawCounts({ 'to send': c.pending, duplicated: c.duplicated || 0, invalid: c.invalid || 0 },
+                 ['to send', 'duplicated', 'invalid']);
+      progress.style.width = '0%';
+      drawRows(data.rows);
+    } catch (err) {
+      card.hidden = false;
+      title.textContent = 'Range check';
+      say(err.message, 'error');
+      rowsEl.innerHTML = '';
+      countsEl.innerHTML = '';
+    } finally {
+      busy(false);
+    }
+  });
+
+  // --- Start sending ---
+  sendBtn.addEventListener('click', async () => {
+    const from = document.getElementById('start_row').value;
+    const to = document.getElementById('end_row').value;
+    if (!form.reportValidity()) return;
+    if (!confirm(`Send to rows ${from}–${to}?\n\nDuplicates and rows already emailed in an ` +
+                 `earlier run are skipped automatically.`)) return;
+
+    busy(true, 'Starting…');
+    try {
+      const { job_id: jobId } = await post('{{ url_for("outreach_send") }}');
+      sendBtn.dataset.locked = '1';
+      stopBtn.hidden = false;
+      card.hidden = false;
+      title.textContent = 'Sending';
+      say('Working through the range one message at a time…', 'ok');
+      poll(jobId);
+    } catch (err) {
+      card.hidden = false;
+      title.textContent = 'Sending';
+      say(err.message, 'error');
+      busy(false);
+    }
+  });
+
+  stopBtn.addEventListener('click', async () => {
+    stopBtn.disabled = true;
+    formStatus.textContent = 'Stopping after the current message…';
+    await fetch(stopBtn.dataset.url, { method: 'POST' });
+  });
+
+  function poll(jobId) {
+    const url = `/outreach/job/${jobId}`;
+    stopBtn.dataset.url = `${url}/stop`;
+    clearInterval(timer);
+    const tick = async () => {
+      let job;
+      try {
+        job = await (await fetch(url)).json();
+      } catch (err) {
+        return;  // transient - try again on the next tick
+      }
+      drawCounts(job, ['sent', 'duplicated', 'invalid', 'failed', 'skipped']);
+      drawRows(job.events);
+      progress.style.width = job.total ? `${Math.round((job.done / job.total) * 100)}%` : '0%';
+      formStatus.textContent = job.total ? `${job.done} / ${job.total} rows` : '';
+
+      if (['done', 'stopped', 'error'].includes(job.state)) {
+        clearInterval(timer);
+        stopBtn.hidden = true;
+        stopBtn.disabled = false;
+        sendBtn.dataset.locked = '0';
+        busy(false);
+        title.textContent = 'Result';
+        if (job.state === 'error') say(job.error, 'error');
+        else if (job.state === 'stopped') say(`Stopped. ${job.sent} sent.`, 'warn');
+        else say(`Finished. ${job.sent} sent, ${job.duplicated} skipped as duplicates` +
+                 `${job.failed ? `, ${job.failed} failed` : ''}.`, 'ok');
+      }
+    };
+    tick();
+    timer = setInterval(tick, 1500);
+  }
+
+  // --- Mail connection test ---
+  const testBtn = document.getElementById('test-smtp');
+  const testResult = document.getElementById('test-result');
+  testBtn.addEventListener('click', async () => {
+    testBtn.disabled = true;
+    testResult.textContent = 'Connecting…';
+    try {
+      const resp = await fetch('{{ url_for("outreach_smtp_test") }}', { method: 'POST' });
+      const data = await resp.json();
+      testResult.textContent = resp.ok ? data.ok : data.error;
+      testResult.style.color = resp.ok ? '#067647' : '#b42318';
+    } catch (err) {
+      testResult.textContent = 'Could not reach the server.';
+      testResult.style.color = '#b42318';
+    } finally {
+      testBtn.disabled = false;
+    }
+  });
+})();
+</script>
+{% endblock %}

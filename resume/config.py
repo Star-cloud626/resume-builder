@@ -97,6 +97,32 @@ class AuthSettings:
 
 
 @dataclass
+class SmtpSettings:
+    """Outgoing mail account used by the outreach sender.
+
+    ``user`` is the mailbox that authenticates; ``sender`` is what recipients
+    see (defaults to ``user``). For Gmail, ``password`` must be an *app
+    password* - regular account passwords are rejected by the SMTP server.
+    """
+
+    host: str
+    port: int
+    user: str
+    password: str
+    sender: str
+    sender_name: str
+    use_ssl: bool
+    # How to find the mail server's address: "" = the system resolver, "doh" =
+    # Google DNS-over-HTTPS. Use "doh" behind VPNs such as Astrill that answer
+    # mail-server lookups with a dead proxy address.
+    resolver: str = ""
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.host and self.user and self.password)
+
+
+@dataclass
 class Profile:
     contact: Contact
     experience: list[ExperienceSkeleton] = field(default_factory=list)
@@ -133,6 +159,21 @@ def load_auth_settings() -> AuthSettings:
         secret_key=_env("FLASK_SECRET_KEY", "dev-insecure-change-me"),
         admin_email=_env("ADMIN_EMAIL", "admin@example.com"),
         admin_password=_env("ADMIN_PASSWORD", "admin"),
+    )
+
+
+def load_smtp_settings() -> SmtpSettings:
+    port = _env("SMTP_PORT", "587")
+    user = _env("SMTP_USER")
+    return SmtpSettings(
+        host=_env("SMTP_HOST"),
+        port=int(port) if port.isdigit() else 587,
+        user=user,
+        password=os.environ.get("SMTP_PASSWORD", ""),  # keep spaces: Gmail app passwords have them
+        sender=_env("SMTP_SENDER") or user,
+        sender_name=_env("SMTP_SENDER_NAME"),
+        use_ssl=_env("SMTP_SSL", "").lower() in ("1", "true", "yes"),
+        resolver=_env("SMTP_RESOLVER").lower(),
     )
 
 

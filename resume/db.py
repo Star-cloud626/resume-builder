@@ -56,6 +56,22 @@ CREATE TABLE IF NOT EXISTS people (
     base_skills TEXT NOT NULL DEFAULT '[]'
 );
 
+CREATE TABLE IF NOT EXISTS outreach_log (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id        INTEGER,
+    email          TEXT NOT NULL,
+    linkedin       TEXT NOT NULL DEFAULT '',
+    spreadsheet_id TEXT NOT NULL DEFAULT '',
+    tab            TEXT NOT NULL DEFAULT '',
+    row_number     INTEGER NOT NULL DEFAULT 0,
+    subject        TEXT NOT NULL DEFAULT '',
+    status         TEXT NOT NULL DEFAULT '',
+    detail         TEXT NOT NULL DEFAULT '',
+    sent_at        TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_outreach_email ON outreach_log (email);
+
 CREATE TABLE IF NOT EXISTS experience (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     person_id  INTEGER NOT NULL REFERENCES people(id) ON DELETE CASCADE,
@@ -382,3 +398,56 @@ def _insert_children(
             (person_id, e.get("institution", ""), e.get("degree", ""), e.get("period", ""),
              e.get("location", ""), i),
         )
+
+
+# --- Outreach send log ------------------------------------------------------
+# One row per attempt, so a later run can tell that an address was already
+# emailed. The dedup lookup is deliberately NOT scoped to a user: every account
+# sends from the same configured mailbox, so a recipient would see two mails
+# from the same address regardless of who pressed the button.
+
+
+def log_outreach(
+    *,
+    user_id: int | None,
+    email: str,
+    linkedin: str,
+    spreadsheet_id: str,
+    tab: str,
+    row_number: int,
+    subject: str,
+    status: str,
+    detail: str = "",
+) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """INSERT INTO outreach_log
+               (user_id, email, linkedin, spreadsheet_id, tab, row_number,
+                subject, status, detail, sent_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))""",
+            (user_id, email.strip().lower(), linkedin, spreadsheet_id, tab,
+             row_number, subject, status, detail),
+        )
+        conn.commit()
+
+
+def already_sent_emails() -> set[str]:
+    """Lower-cased addresses that were successfully emailed in an earlier run."""
+    with _connect() as conn:
+        rows = conn.execute(
+            "SELECT DISTINCT email FROM outreach_log WHERE status='sent'"
+        ).fetchall()
+    return {r["email"] for r in rows}
+
+
+def outreach_history(user_id: int | None = None, limit: int = 200) -> list[dict]:
+    """Recent attempts, newest first. ``user_id=None`` returns everyone's."""
+    sql = "SELECT * FROM outreach_log"
+    params: tuple = ()
+    if user_id is not None:
+        sql += " WHERE user_id=?"
+        params = (user_id,)
+    sql += " ORDER BY id DESC LIMIT ?"
+    with _connect() as conn:
+        rows = conn.execute(sql, params + (limit,)).fetchall()
+    return [dict(r) for r in rows]

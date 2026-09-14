@@ -5,10 +5,14 @@ job-tailored bullets, a summary, tailored skills, a cover letter, and answers to
 application questions - then returns print-ready PDFs.
 
 Access control (RBAC):
-  * ``admin`` - full access, plus user management (CRUD client accounts) and
-    every candidate profile.
+  * ``admin`` - full access, plus user management (CRUD client accounts), every
+    candidate profile, and the Outreach page.
   * ``user``  - may log in, add/edit/delete their OWN candidate profiles, and
     generate resumes / cover letters / answers for them.
+
+The Outreach page is a separate job: it emails a row range from a Google Sheet
+one recipient at a time, skipping addresses already seen in the range or emailed
+in an earlier run. See ``resume/outreach.py``.
 
 Candidate facts are stored per person (owned by a user) in a local SQLite
 database and are never invented by the AI.
@@ -27,6 +31,7 @@ from pathlib import Path
 from flask import (
     Flask,
     abort,
+    jsonify,
     make_response,
     redirect,
     render_template,
@@ -38,7 +43,12 @@ from flask import (
 )
 
 from resume import db
-from resume.config import Contact, load_auth_settings, load_vertex_settings
+from resume.config import (
+    Contact,
+    load_auth_settings,
+    load_smtp_settings,
+    load_vertex_settings,
+)
 from resume.generator import (
     GenerationError,
     generate,
@@ -46,12 +56,23 @@ from resume.generator import (
     generate_cover_letter,
     parse_questions,
 )
+from resume.outreach import (
+    DEFAULT_DELAY,
+    MAX_ROWS,
+    JobSpec,
+    OutreachError,
+    build_plan,
+    check_smtp,
+    get_job,
+    start_job,
+)
 from resume.pdf import (
     html_to_pdf,
     render_answers_html,
     render_cover_letter_html,
     render_html,
 )
+from resume.sheets import SheetError, service_account_email
 
 app = Flask(__name__)
 app.secret_key = load_auth_settings().secret_key
@@ -400,6 +421,117 @@ def person_delete(person_id: int):
     return redirect(url_for("index", deleted=1))
 
 
+# --- Outreach: send one-by-one from a Google Sheet --------------------------
+# Admin-only: every account would send from the single mailbox configured in
+# .env, so this isn't something a client account should be able to do.
+
+
+def _outreach_spec(user: dict) -> JobSpec:
+    """Build a JobSpec from the form, with friendly errors for bad numbers."""
+    f = request.form
+
+    def number(field: str, label: str, default: float) -> float:
+        raw = f.get(field, "").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            raise OutreachError(f"{label} must be a number.") from None
+
+    return JobSpec(
+        sheet_url=f.get("sheet_url", "").strip(),
+        tab=f.get("tab", "").strip(),
+        start_row=int(number("start_row", "Start row", 2)),
+        end_row=int(number("end_row", "End row", 2)),
+        email_column=f.get("email_column", "").strip(),
+        linkedin_column=f.get("linkedin_column", "").strip(),
+        status_column=f.get("status_column", "").strip(),
+        subject=f.get("subject", ""),
+        body=f.get("body", ""),
+        delay=number("delay", "Delay", DEFAULT_DELAY),
+        user_id=user["id"],
+    )
+
+
+def _outreach_error(exc: Exception):
+    return jsonify({"error": str(exc)}), 400
+
+
+@app.get("/outreach")
+@admin_required
+def outreach_page():
+    smtp = load_smtp_settings()
+    return render_template(
+        "outreach.html",
+        smtp=smtp,
+        service_account=service_account_email(),
+        default_delay=DEFAULT_DELAY,
+        max_rows=MAX_ROWS,
+        history=db.outreach_history(limit=50),
+    )
+
+
+@app.post("/outreach/preview")
+@admin_required
+def outreach_preview():
+    """Read-only dry look: which rows would send, which are duplicates."""
+    try:
+        plan = build_plan(_outreach_spec(current_user()))
+    except (OutreachError, SheetError) as exc:
+        return _outreach_error(exc)
+    return jsonify({
+        "tab": plan.tab,
+        "email_column": plan.email_column,
+        "linkedin_column": plan.linkedin_column,
+        "status_column": plan.status_column,
+        "counts": plan.counts(),
+        "rows": [
+            {"row": r.row_number, "email": r.email, "linkedin": r.linkedin,
+             "status": r.status, "detail": r.detail}
+            for r in plan.rows
+        ],
+    })
+
+
+@app.post("/outreach/send")
+@admin_required
+def outreach_send():
+    try:
+        job = start_job(_outreach_spec(current_user()), load_smtp_settings())
+    except (OutreachError, SheetError) as exc:
+        return _outreach_error(exc)
+    return jsonify({"job_id": job.id})
+
+
+@app.get("/outreach/job/<job_id>")
+@admin_required
+def outreach_job(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        abort(404)
+    return jsonify(job.snapshot())
+
+
+@app.post("/outreach/job/<job_id>/stop")
+@admin_required
+def outreach_job_stop(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        abort(404)
+    job.stop()
+    return jsonify({"stopping": True})
+
+
+@app.post("/outreach/smtp-test")
+@admin_required
+def outreach_smtp_test():
+    try:
+        return jsonify({"ok": check_smtp(load_smtp_settings())})
+    except OutreachError as exc:
+        return _outreach_error(exc)
+
+
 # --- User management (admin only) -------------------------------------------
 
 
@@ -487,4 +619,4 @@ def user_delete(user_id: int):
 
 
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="127.0.0.1", port=5000, debug=False)
