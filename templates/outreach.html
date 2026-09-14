@@ -72,6 +72,10 @@
     <button class="btn secondary sm" id="test-smtp" {% if not smtp.configured %}disabled{% endif %}>
       Test mail connection
     </button>
+    <button class="btn secondary sm" id="test-slack" {% if not slack_ready %}disabled
+            title="Set SLACK_WEBHOOK_URL in .env to get a Slack message when a run ends"{% endif %}>
+      Test Slack
+    </button>
     <span id="test-result" class="hint" style="margin:0"></span>
   </div>
 </div>
@@ -323,34 +327,41 @@
         sendBtn.dataset.locked = '0';
         busy(false);
         title.textContent = 'Result';
-        if (job.state === 'error') say(job.error, 'error');
-        else if (job.state === 'stopped') say(`Stopped. ${job.sent} sent.`, 'warn');
+        const slack = job.slack === 'sent' ? ' Slack notified.'
+          : job.slack ? ` Slack ${job.slack}.` : '';
+        if (job.state === 'error') say(job.error + slack, 'error');
+        else if (job.state === 'stopped') say(`Stopped. ${job.sent} sent.${slack}`, 'warn');
         else say(`Finished. ${job.sent} sent, ${job.duplicated} skipped as duplicates` +
-                 `${job.failed ? `, ${job.failed} failed` : ''}.`, 'ok');
+                 `${job.failed ? `, ${job.failed} failed` : ''}.${slack}`, 'ok');
       }
     };
     tick();
     timer = setInterval(tick, 1500);
   }
 
-  // --- Mail connection test ---
-  const testBtn = document.getElementById('test-smtp');
+  // --- Mail / Slack connection tests ---
   const testResult = document.getElementById('test-result');
-  testBtn.addEventListener('click', async () => {
-    testBtn.disabled = true;
-    testResult.textContent = 'Connecting…';
-    try {
-      const resp = await fetch('{{ url_for("outreach_smtp_test") }}', { method: 'POST' });
-      const data = await resp.json();
-      testResult.textContent = resp.ok ? data.ok : data.error;
-      testResult.style.color = resp.ok ? '#067647' : '#b42318';
-    } catch (err) {
-      testResult.textContent = 'Could not reach the server.';
-      testResult.style.color = '#b42318';
-    } finally {
-      testBtn.disabled = false;
-    }
-  });
+  function wireTest(buttonId, url, pending) {
+    const btn = document.getElementById(buttonId);
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      testResult.textContent = pending;
+      testResult.style.color = '';
+      try {
+        const resp = await fetch(url, { method: 'POST' });
+        const data = await resp.json();
+        testResult.textContent = resp.ok ? data.ok : data.error;
+        testResult.style.color = resp.ok ? '#067647' : '#b42318';
+      } catch (err) {
+        testResult.textContent = 'Could not reach the server.';
+        testResult.style.color = '#b42318';
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  }
+  wireTest('test-smtp', '{{ url_for("outreach_smtp_test") }}', 'Connecting…');
+  wireTest('test-slack', '{{ url_for("outreach_slack_test") }}', 'Posting to Slack…');
 })();
 </script>
 {% endblock %}

@@ -33,7 +33,7 @@ from email.utils import formataddr, formatdate, make_msgid
 import requests
 
 from . import db
-from .config import SmtpSettings
+from .config import SmtpSettings, load_slack_webhook_url
 from .sheets import SheetError, SheetRef, Sheets, column_index, column_letter, parse_sheet_url
 
 EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
@@ -371,6 +371,7 @@ class Job:
     spec: JobSpec
     state: str = "starting"       # starting | running | done | stopped | error
     error: str = ""
+    slack: str = ""               # "" (not configured) | "sent" | "not sent: <reason>"
     plan: SheetPlan | None = None
     events: list[dict] = field(default_factory=list)
     started_at: str = field(default_factory=lambda: f"{datetime.now():%Y-%m-%d %H:%M:%S}")
@@ -403,6 +404,7 @@ class Job:
             "done": len(events),
             "events": events,
             "started_at": self.started_at,
+            "slack": self.slack,
             **tally,
         }
 
@@ -436,16 +438,88 @@ def start_job(spec: JobSpec, settings: SmtpSettings) -> Job:
 
 
 def _run(job: Job, settings: SmtpSettings) -> None:
+    state, error = "done", ""
     try:
         client = Sheets()
         job.plan = build_plan(job.spec, client)
         job.state = "running"
         _process(job, client, settings)
-        job.state = "stopped" if job.stop_flag.is_set() else "done"
+        if job.stop_flag.is_set():
+            state = "stopped"
     except (OutreachError, SheetError) as exc:
-        job.state, job.error = "error", str(exc)
+        state, error = "error", str(exc)
     except Exception as exc:  # noqa: BLE001 - surface anything else in the UI
-        job.state, job.error = "error", f"Unexpected error: {exc}"
+        state, error = "error", f"Unexpected error: {exc}"
+
+    job.error = error
+    try:
+        notify_slack(job, state)
+    finally:
+        # Set last: the page stops polling once it sees a final state, so the
+        # Slack outcome has to be recorded before then.
+        job.state = state
+
+
+# --- Slack ------------------------------------------------------------------
+
+_HEADLINES = {
+    "done": ":white_check_mark: Outreach run finished",
+    "stopped": ":double_vertical_bar: Outreach run stopped",
+    "error": ":x: Outreach run failed",
+}
+_MAX_FAILURES_LISTED = 10
+
+
+def slack_summary(job: Job, state: str) -> str:
+    """The message posted when a run ends in ``state`` (done / stopped / error)."""
+    snap = job.snapshot()
+    spec = job.spec
+    where = f"rows {spec.start_row}-{spec.end_row}"
+    if job.plan:
+        where = f"tab \"{job.plan.tab}\", {where}"
+
+    lines = [
+        f"*{_HEADLINES.get(state, 'Outreach run ended')}*",
+        f"{where} · subject: {spec.subject}",
+        f"Started {snap['started_at']}, ended {datetime.now():%Y-%m-%d %H:%M:%S}",
+    ]
+    if state == "error":
+        lines.append(f"Error: {job.error}")
+    if job.plan:
+        lines.append(
+            f"Sent *{snap['sent']}* · duplicated {snap['duplicated']} · invalid {snap['invalid']}"
+            f" · failed {snap['failed']} · {snap['done']}/{snap['total']} rows processed"
+        )
+    failures = [e for e in snap["events"] if e["status"] == "failed"]
+    for event in failures[:_MAX_FAILURES_LISTED]:
+        lines.append(f"• row {event['row']} {event['email']}: {event['detail'][:120]}")
+    if len(failures) > _MAX_FAILURES_LISTED:
+        lines.append(f"• …and {len(failures) - _MAX_FAILURES_LISTED} more failed rows")
+    return "\n".join(lines)
+
+
+def post_to_slack(text: str, url: str | None = None) -> None:
+    """POST a message to the configured webhook. Raises OutreachError on failure."""
+    url = url if url is not None else load_slack_webhook_url()
+    if not url:
+        raise OutreachError("SLACK_WEBHOOK_URL isn't set in .env.")
+    try:
+        resp = requests.post(url, json={"text": text}, timeout=15)
+    except requests.RequestException as exc:
+        raise OutreachError(f"Couldn't reach Slack - {exc}") from exc
+    if resp.status_code != 200:
+        raise OutreachError(f"Slack rejected the message ({resp.status_code}: {resp.text[:100]})")
+
+
+def notify_slack(job: Job, state: str) -> None:
+    """Best-effort: a Slack outage must never turn a finished run into a failure."""
+    if not load_slack_webhook_url():
+        return
+    try:
+        post_to_slack(slack_summary(job, state))
+        job.slack = "sent"
+    except OutreachError as exc:
+        job.slack = f"not sent: {exc}"
 
 
 def _process(job: Job, client: Sheets, settings: SmtpSettings) -> None:

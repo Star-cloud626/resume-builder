@@ -162,6 +162,11 @@ def load_auth_settings() -> AuthSettings:
     )
 
 
+def load_slack_webhook_url() -> str:
+    """Slack Incoming Webhook that gets a summary when an outreach run ends ('' = off)."""
+    return _env("SLACK_WEBHOOK_URL")
+
+
 def load_smtp_settings() -> SmtpSettings:
     port = _env("SMTP_PORT", "587")
     user = _env("SMTP_USER")

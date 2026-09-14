@@ -257,9 +257,57 @@ def test_connects_to_resolved_address():
     check("spoke SMTP to it", greeting[:1], ["ehlo tester"])
 
 
+def test_slack_notification():
+    print("\nSlack: a summary is posted when a run ends, and a Slack outage can't break the run")
+
+    class FakeResponse:
+        def __init__(self, status):
+            self.status_code, self.text = status, "no_service" if status != 200 else "ok"
+
+    posts = []
+    reply = {"status": 200}
+
+    def fake_post(url, json, timeout):
+        posts.append((url, json["text"]))
+        return FakeResponse(reply["status"])
+
+    real_post, real_url = outreach.requests.post, outreach.load_slack_webhook_url
+    outreach.requests.post = fake_post
+    try:
+        # Not configured: nothing is posted.
+        outreach.load_slack_webhook_url = lambda: ""
+        snap = run({50: ["Al", "al@x.com", "", ""]}, start=50, end=50)
+        check("no webhook -> nothing posted", posts, [])
+        check("no webhook -> slack field empty", snap["slack"], "")
+
+        # Configured: one summary with the counts and the failed row.
+        outreach.load_slack_webhook_url = lambda: "https://hooks.slack.test/abc"
+        FakeMailer.fail_for = {"bad@x.com"}
+        snap = run({51: ["Bo", "bo@x.com", "", ""], 52: ["Bad", "bad@x.com", "", ""],
+                    53: ["Bo", "bo@x.com", "", ""]}, start=51, end=53)
+        FakeMailer.fail_for = set()
+        text = posts[0][1] if posts else ""
+        check("one message posted", len(posts), 1)
+        check("to the configured webhook", posts[0][0] if posts else "", "https://hooks.slack.test/abc")
+        check("headline says finished", text.startswith("*:white_check_mark: Outreach run finished*"), True)
+        check("counts included", "Sent *1* · duplicated 1 · invalid 0 · failed 1" in text, True)
+        check("failed row listed", "row 52 bad@x.com: simulated server hiccup" in text, True)
+        check("page told Slack was notified", snap["slack"], "sent")
+
+        # Slack down: the run still finishes normally.
+        posts.clear()
+        reply["status"] = 404
+        snap = run({54: ["Cy", "cy@x.com", "", ""]}, start=54, end=54)
+        check("run still 'done' when Slack fails", snap["state"], "done")
+        check("email still sent", FakeMailer.sent, ["cy@x.com"])
+        check("page told why Slack wasn't notified", snap["slack"].startswith("not sent: Slack rejected"), True)
+    finally:
+        outreach.requests.post, outreach.load_slack_webhook_url = real_post, real_url
+
+
 for test in (test_first_run, test_second_run_uses_history, test_failed_send_is_retried_later,
              test_stop_halts_the_run, test_bad_input_is_refused, test_message_looks_normal,
-             test_connects_to_resolved_address):
+             test_connects_to_resolved_address, test_slack_notification):
     test()
 
 print(f"\n{checks['passed']} passed, {checks['failed']} failed")

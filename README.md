@@ -123,6 +123,14 @@ plain text, no BCC list. The gap between sends (default 8s) is there to stay
 within provider rate limits — Gmail in particular caps daily sends, and a large
 range should be split across days.
 
+### Slack notification
+
+Set `SLACK_WEBHOOK_URL` in `.env` to a Slack Incoming Webhook and a summary is
+posted to that channel whenever a run finishes, is stopped, or fails: counts of
+sent / duplicated / invalid / failed rows, plus the failed rows and why. **Test
+Slack** on the Outreach page posts a test message. If Slack can't be reached the
+run is unaffected; the result banner says the notification wasn't sent.
+
 ### Testing it without sending anything
 
 `tests/test_outreach.py` runs the whole flow against a fake spreadsheet, a fake

@@ -46,6 +46,7 @@ from resume import db
 from resume.config import (
     Contact,
     load_auth_settings,
+    load_slack_webhook_url,
     load_smtp_settings,
     load_vertex_settings,
 )
@@ -64,6 +65,7 @@ from resume.outreach import (
     build_plan,
     check_smtp,
     get_job,
+    post_to_slack,
     start_job,
 )
 from resume.pdf import (
@@ -465,6 +467,7 @@ def outreach_page():
     return render_template(
         "outreach.html",
         smtp=smtp,
+        slack_ready=bool(load_slack_webhook_url()),
         service_account=service_account_email(),
         default_delay=DEFAULT_DELAY,
         max_rows=MAX_ROWS,
@@ -530,6 +533,16 @@ def outreach_smtp_test():
         return jsonify({"ok": check_smtp(load_smtp_settings())})
     except OutreachError as exc:
         return _outreach_error(exc)
+
+
+@app.post("/outreach/slack-test")
+@admin_required
+def outreach_slack_test():
+    try:
+        post_to_slack(":wave: Test message from Resume Builder - outreach notifications are set up.")
+    except OutreachError as exc:
+        return _outreach_error(exc)
+    return jsonify({"ok": "Posted a test message to Slack."})
 
 
 # --- User management (admin only) -------------------------------------------
