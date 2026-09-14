@@ -460,12 +460,19 @@ def _outreach_error(exc: Exception):
     return jsonify({"error": str(exc)}), 400
 
 
+def _remember_outreach_form(user: dict) -> None:
+    """Keep the sheet URL / subject / message so the form comes back filled in."""
+    f = request.form
+    db.save_outreach_draft(user["id"], f.get("sheet_url", ""), f.get("subject", ""), f.get("body", ""))
+
+
 @app.get("/outreach")
 @admin_required
 def outreach_page():
     smtp = load_smtp_settings()
     return render_template(
         "outreach.html",
+        draft=db.get_outreach_draft(current_user()["id"]),
         smtp=smtp,
         slack_ready=bool(load_slack_webhook_url()),
         service_account=service_account_email(),
@@ -479,8 +486,10 @@ def outreach_page():
 @admin_required
 def outreach_preview():
     """Read-only dry look: which rows would send, which are duplicates."""
+    user = current_user()
+    _remember_outreach_form(user)
     try:
-        plan = build_plan(_outreach_spec(current_user()))
+        plan = build_plan(_outreach_spec(user))
     except (OutreachError, SheetError) as exc:
         return _outreach_error(exc)
     return jsonify({
@@ -500,11 +509,20 @@ def outreach_preview():
 @app.post("/outreach/send")
 @admin_required
 def outreach_send():
+    user = current_user()
+    _remember_outreach_form(user)
     try:
-        job = start_job(_outreach_spec(current_user()), load_smtp_settings())
+        job = start_job(_outreach_spec(user), load_smtp_settings())
     except (OutreachError, SheetError) as exc:
         return _outreach_error(exc)
     return jsonify({"job_id": job.id})
+
+
+@app.post("/outreach/draft")
+@admin_required
+def outreach_save_draft():
+    _remember_outreach_form(current_user())
+    return jsonify({"ok": f"Saved {datetime.now():%H:%M}."})
 
 
 @app.get("/outreach/job/<job_id>")

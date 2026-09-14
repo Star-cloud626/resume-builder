@@ -56,6 +56,14 @@ CREATE TABLE IF NOT EXISTS people (
     base_skills TEXT NOT NULL DEFAULT '[]'
 );
 
+CREATE TABLE IF NOT EXISTS outreach_drafts (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    sheet_url  TEXT NOT NULL DEFAULT '',
+    subject    TEXT NOT NULL DEFAULT '',
+    body       TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT ''
+);
+
 CREATE TABLE IF NOT EXISTS outreach_log (
     id             INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id        INTEGER,
@@ -451,3 +459,30 @@ def outreach_history(user_id: int | None = None, limit: int = 200) -> list[dict]
     with _connect() as conn:
         rows = conn.execute(sql, params + (limit,)).fetchall()
     return [dict(r) for r in rows]
+
+
+# --- Outreach form memory ---------------------------------------------------
+# The sheet URL, subject and message a user last used, so the Outreach form
+# comes back filled in. One row per user.
+
+
+def get_outreach_draft(user_id: int) -> dict:
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT sheet_url, subject, body, updated_at FROM outreach_drafts WHERE user_id=?",
+            (user_id,),
+        ).fetchone()
+    return dict(row) if row else {"sheet_url": "", "subject": "", "body": "", "updated_at": ""}
+
+
+def save_outreach_draft(user_id: int, sheet_url: str, subject: str, body: str) -> None:
+    with _connect() as conn:
+        conn.execute(
+            """INSERT INTO outreach_drafts (user_id, sheet_url, subject, body, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now', 'localtime'))
+               ON CONFLICT(user_id) DO UPDATE SET
+                 sheet_url=excluded.sheet_url, subject=excluded.subject,
+                 body=excluded.body, updated_at=excluded.updated_at""",
+            (user_id, sheet_url.strip(), subject, body),
+        )
+        conn.commit()

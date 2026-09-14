@@ -86,7 +86,7 @@
     <div class="grid">
       <div class="field">
         <label class="lbl" for="sheet_url">Google Sheet URL</label>
-        <input type="text" id="sheet_url" name="sheet_url" required
+        <input type="text" id="sheet_url" name="sheet_url" required value="{{ draft.sheet_url }}"
                placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=0">
       </div>
     </div>
@@ -133,16 +133,21 @@
     <div class="grid" style="margin-top:18px">
       <div class="field">
         <label class="lbl" for="subject">Subject</label>
-        <input type="text" id="subject" name="subject" required>
+        <input type="text" id="subject" name="subject" required value="{{ draft.subject }}">
       </div>
       <div class="field">
         <label class="lbl" for="body">Message</label>
-        <textarea id="body" name="body" rows="10" required></textarea>
-        <p class="hint">Sent as plain text, one message per person, to one recipient each.</p>
+        <textarea id="body" name="body" rows="10" required>{{ draft.body }}</textarea>
+        <p class="hint">
+          Sent as plain text, one message per person, to one recipient each.
+          The sheet URL, subject and message are remembered for next time
+          {%- if draft.updated_at %} (last saved {{ draft.updated_at }}){% endif %}.
+        </p>
       </div>
     </div>
 
     <div class="row-actions">
+      <button type="button" class="btn ghost" id="save-btn">Save</button>
       <button type="button" class="btn secondary" id="preview-btn">Check the range</button>
       <button type="button" class="btn" id="send-btn" {% if not smtp.configured %}disabled{% endif %}>
         Start sending
@@ -247,6 +252,20 @@
     if (!resp.ok) throw new Error(data.error || `Request failed (${resp.status})`);
     return data;
   }
+
+  // --- Save the sheet URL / subject / message for next time ---
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.addEventListener('click', async () => {
+    saveBtn.disabled = true;
+    try {
+      const data = await post('{{ url_for("outreach_save_draft") }}');
+      formStatus.textContent = data.ok;
+    } catch (err) {
+      formStatus.textContent = err.message;
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
 
   // --- Check the range: reads the sheet, sends nothing ---
   previewBtn.addEventListener('click', async () => {

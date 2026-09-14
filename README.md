@@ -107,6 +107,10 @@ then:
   live, and **Stop** halts after the current message; rows it never reached keep
   an empty status cell.
 
+The sheet URL, subject and message are remembered per user (in `resume.db`),
+so the form comes back filled in. They're saved on **Save**, **Check the range**
+and **Start sending**. The row range isn't remembered, since it changes each run.
+
 Before each send the address is checked, and the row is **skipped** if it is:
 
 - blank or unreadable → marked `invalid`;
